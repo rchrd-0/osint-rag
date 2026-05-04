@@ -1,0 +1,37 @@
+{
+  "root": false,
+  "extends": "//",
+  "linter": {
+    "rules": {
+      "correctness": {
+        "useExhaustiveDependencies": "info",
+        "noUnusedImports": {
+          "level": "warn",
+          "fix": "unsafe"
+        },
+        "noUnusedVariables": {
+          "level": "warn"
+        },
+        "useHookAtTopLevel": {
+          "level": "warn"
+        }
+      },
+      "a11y": {
+        "noStaticElementInteractions": "off",
+        "useKeyWithClickEvents": "off",
+        "noRedundantAlt": "off"
+      },
+      "nursery": {
+        "useSortedClasses": {
+          "level": "warn",
+          "fix": "safe",
+          "options": {
+            "attributes": ["className", "*.ClassName"],
+            "functions": ["cn", "clsx", "cva"]
+          }
+        }
+      }
+    },
+    "domains": { "react": "recommended" }
+  }
+}

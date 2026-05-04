@@ -1,0 +1,31 @@
+// Better-T-Stack
+//
+// Website: https://www.better-t-stack.dev/
+// Stack Builder: https://www.better-t-stack.dev/new
+// Analytics: https://www.better-t-stack.dev/analytics
+// Showcase: https://www.better-t-stack.dev/showcase
+// Sponsor: https://github.com/sponsors/AmanVarshney01
+//
+// Add new addons with: bun create better-t-stack add
+// This file is safe to delete
+
+{
+  "$schema": "https://r2.better-t-stack.dev/schema.json",
+  "version": "3.28.0",
+  "createdAt": "2026-05-04T02:34:40.846Z",
+  "reproducibleCommand": "bun create better-t-stack@latest osint-rag --frontend tanstack-router --backend hono --runtime bun --database postgres --orm prisma --api none --auth none --payments none --addons biome --examples ai --db-setup docker --web-deploy none --server-deploy none --git --package-manager bun --install",
+  "database": "postgres",
+  "orm": "prisma",
+  "backend": "hono",
+  "runtime": "bun",
+  "frontend": ["tanstack-router"],
+  "addons": ["biome"],
+  "examples": ["ai"],
+  "auth": "none",
+  "payments": "none",
+  "packageManager": "bun",
+  "dbSetup": "docker",
+  "api": "none",
+  "webDeploy": "none",
+  "serverDeploy": "none",
+}
