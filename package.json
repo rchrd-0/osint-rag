@@ -31,7 +31,8 @@
     "db:watch": "bun run --filter @osint-rag/db db:watch",
     "db:stop": "bun run --filter @osint-rag/db db:stop",
     "db:down": "bun run --filter @osint-rag/db db:down",
-    "check": "biome check --write ."
+    "check": "biome check  .",
+    "check:fix": "biome check --write ."
   },
   "dependencies": {
     "@osint-rag/env": "workspace:*",

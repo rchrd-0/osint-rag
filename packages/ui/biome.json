@@ -1,0 +1,17 @@
+{
+  "extends": "//",
+  "overrides": [
+    {
+      "includes": ["**/src/components/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useImportType": "off",
+            "useComponentExportOnlyModules": "off"
+          },
+          "a11y": "off"
+        }
+      }
+    }
+  ]
+}

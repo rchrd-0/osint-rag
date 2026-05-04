@@ -1,15 +1,15 @@
 import { Toaster } from "@osint-rag/ui/components/sonner";
+import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, HeadContent, Outlet } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-
 import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
 
-import "../index.css";
+export interface RouterContext {
+  queryClient: QueryClient;
+}
 
-export type RouterAppContext = {};
-
-export const Route = createRootRouteWithContext<RouterAppContext>()({
+export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootComponent,
   head: () => ({
     meta: [
@@ -46,7 +46,8 @@ function RootComponent() {
         </div>
         <Toaster richColors />
       </ThemeProvider>
-      <TanStackRouterDevtools position="bottom-left" />
+
+      <TanStackRouterDevtools position="bottom-left" initialIsOpen={false} />
     </>
   );
 }
