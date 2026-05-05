@@ -1,10 +1,45 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated"
+  provider     = "prisma-client"
+  output       = "../generated"
   moduleFormat = "esm"
-  runtime = "bun"
+  runtime      = "bun"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+model Document {
+  id          String    @id @default(cuid())
+  sourceType  String    @map("source_type")
+  sourceName  String?   @map("source_name")
+  title       String
+  url         String?
+  author      String?
+  externalId  String?   @map("external_id")
+  publishedAt DateTime? @map("published_at")
+  rawText     String
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  chunks Chunk[]
+
+  @@index([sourceType])
+  @@index([publishedAt])
+  @@map("documents")
+}
+
+model Chunk {
+  id         String   @id @default(cuid())
+  documentId String   @map("document_id")
+  text       String
+  chunkIndex Int      @map("chunk_index")
+  tokenCount Int?     @map("token_count")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkIndex])
+  @@index([documentId])
+  @@map("chunks")
 }
