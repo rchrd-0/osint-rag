@@ -8,6 +8,7 @@ import { HTTPException } from "hono/http-exception";
 import { logger } from "hono/logger";
 import { secureHeaders } from "hono/secure-headers";
 import { ZodError } from "zod";
+import documentsRoutes from "@/modules/documents/documents.routes";
 import healthRoutes from "@/modules/health/health.routes";
 
 const app = new Hono();
@@ -83,6 +84,8 @@ app.post("/ai", async (c) => {
 });
 
 app.route("/", healthRoutes);
+
+app.route("/documents", documentsRoutes);
 
 export default {
   port: env.PORT,
