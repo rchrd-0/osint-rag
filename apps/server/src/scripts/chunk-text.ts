@@ -3,7 +3,7 @@ export interface RawChunk {
   chunkIndex: number;
 }
 
-export const chunkText = (rawText: string, maxChars = 2000) => {
+export const chunkText = (rawText: string, maxChars = 1500) => {
   const paragraphs = rawText
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())

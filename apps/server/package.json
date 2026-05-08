@@ -1,5 +1,5 @@
 {
-  "name": "@osint-rag/server",
+  "name": "server",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
@@ -7,7 +7,8 @@
     "check-types": "tsc -b",
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
     "dev": "bun run --hot src/index.ts",
-    "start": "bun run dist/index.mjs"
+    "start": "bun run dist/index.mjs",
+    "docs:chunk": "bun run src/scripts/chunk-documents.ts"
   },
   "dependencies": {
     "@ai-sdk/devtools": "^0.0.2",
