@@ -16,7 +16,7 @@ model Document {
   title       String
   url         String?
   author      String?
-  externalId  String?   @map("external_id")
+  externalId  String    @map("external_id")
   publishedAt DateTime? @map("published_at")
   rawText     String
   createdAt   DateTime  @default(now()) @map("created_at")
