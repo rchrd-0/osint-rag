@@ -89,4 +89,11 @@ Total chunks created: ${totalChunksCreated}
 `);
 };
 
-await runBatchChunkDocuments();
+await runBatchChunkDocuments()
+  .catch((error) => {
+    console.error("An error occurred during chunking: ", error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

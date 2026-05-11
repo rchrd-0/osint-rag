@@ -197,4 +197,11 @@ Failed:     ${failed}
   );
 };
 
-await runGuardianIngest();
+await runGuardianIngest()
+  .catch((error) => {
+    console.error("Guardian ingest failed: ", error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

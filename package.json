@@ -31,7 +31,10 @@
     "db:watch": "bun run --filter @osint-rag/db db:watch",
     "db:stop": "bun run --filter @osint-rag/db db:stop",
     "db:down": "bun run --filter @osint-rag/db db:down",
-    "docs:chunk": "bun run --filter server docs:chunk",
+    "db:seed": "bun run --filter @osint-rag/db db:seed",
+    "db:reset": "bun run --cwd packages/db db:reset",
+    "docs:chunk": "bun run --elide-lines=0 --filter server docs:chunk",
+    "ingest:guardian": "bun run --elide-lines=0 --filter server ingest:guardian",
     "check": "biome check  .",
     "check:fix": "biome check --write ."
   },
