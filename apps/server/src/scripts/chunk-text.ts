@@ -1,7 +1,7 @@
-export interface RawChunk {
+export type RawChunk = {
   text: string;
   chunkIndex: number;
-}
+};
 
 const splitOnSentence = (text: string): string[] => {
   return (text.match(/[^.!?]+[.!?]?/g) ?? [text]).map((s) => s.trim()).filter(Boolean);

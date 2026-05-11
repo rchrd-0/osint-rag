@@ -1,9 +1,14 @@
-import prisma, { type Document } from "@osint-rag/db";
+import prisma, { type Prisma } from "@osint-rag/db";
 import { chunkText } from "@/scripts/chunk-text";
 
-export const chunkDocument = async (
-  document: Pick<Document, "id" | "rawText">,
-): Promise<number> => {
+type ChunkableDocument = Prisma.DocumentGetPayload<{
+  select: {
+    id: true;
+    rawText: true;
+  };
+}>;
+
+export const chunkDocument = async (document: ChunkableDocument): Promise<number> => {
   console.log(`${document.id}: chunking`);
 
   const { rawText } = document;
