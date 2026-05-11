@@ -24,6 +24,7 @@ model Document {
 
   chunks Chunk[]
 
+  @@unique([sourceType, externalId])
   @@index([sourceType])
   @@index([publishedAt])
   @@map("documents")
