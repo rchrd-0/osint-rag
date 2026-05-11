@@ -16,6 +16,7 @@
     "@ai-sdk/google": "^3.0.1",
     "@osint-rag/db": "workspace:*",
     "@osint-rag/env": "workspace:*",
+    "@osint-rag/types": "workspace:*",
     "ai": "catalog:",
     "dotenv": "catalog:",
     "hono": "^4.8.2",

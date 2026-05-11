@@ -4,22 +4,22 @@ import { getDocument, getDocuments } from "@/modules/documents/documents.service
 const documentsRoutes = new Hono();
 
 documentsRoutes.get("/", async (c) => {
-  const documents = await getDocuments();
+  const docs = await getDocuments();
 
   return c.json({
     success: true,
-    data: documents,
+    data: docs,
   });
 });
 
 documentsRoutes.get("/:id", async (c) => {
   const { id } = c.req.param();
 
-  const document = await getDocument(id);
+  const doc = await getDocument(id);
 
   return c.json({
     success: true,
-    data: document,
+    data: doc,
   });
 });
 
