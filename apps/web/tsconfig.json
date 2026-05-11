@@ -11,6 +11,7 @@
     "rootDirs": ["."],
     "paths": {
       "@/*": ["./src/*"],
+      "@osint-rag/types": ["../../packages/types/index.ts"],
       "@osint-rag/ui/*": ["../../packages/ui/src/*"]
     }
   }

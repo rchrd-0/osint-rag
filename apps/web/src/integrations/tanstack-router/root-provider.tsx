@@ -23,5 +23,5 @@ declare module "@tanstack/react-router" {
 }
 
 export const TanstackRouterProvider = () => {
-  return <RouterProvider router={router} context={queryClient} />;
+  return <RouterProvider router={router} context={{ queryClient }} />;
 };

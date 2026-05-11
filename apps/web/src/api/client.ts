@@ -1,6 +1,6 @@
 import { env } from "@osint-rag/env/web";
+import type { ApiErrorResponse, ApiResponse } from "@osint-rag/types";
 import ky from "ky";
-import type { ApiErrorResponse, ApiResponse } from "@/api/types";
 
 export class ApiError extends Error {
   public message: string;
