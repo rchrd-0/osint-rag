@@ -39,7 +39,7 @@ type GuardianDocumentInsert = {
 };
 
 const GUARDIAN_API_BASE_URL = "https://content.guardianapis.com";
-const SEARCH_QUERY = "ai OR economy";
+const SEARCH_QUERY = "ai OR economy OR hong kong OR film OR cinema";
 
 const getUrlBase = (targetUrl: string = GUARDIAN_API_BASE_URL) => {
   const url = new URL(targetUrl);
@@ -53,6 +53,7 @@ export const searchGuardianArticles = async (fromDate?: string) => {
   url.pathname = "/search";
   url.searchParams.set("q", SEARCH_QUERY);
   url.searchParams.set("show-fields", "byline,bodyText");
+  url.searchParams.set("page-size", "100");
   if (fromDate) {
     url.searchParams.set("from-date", fromDate);
   }
@@ -119,6 +120,7 @@ export const mapGuardianDocument = (article: GuardianArticle): GuardianDocumentI
   };
 };
 
+// remove on scale
 export const documentExists = async (sourceType: string, externalId: string): Promise<boolean> => {
   const doc = await prisma.document.findUnique({
     where: {

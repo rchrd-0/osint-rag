@@ -16,9 +16,7 @@ const mapDocumentItem = (
   };
 };
 
-const mapDocumentDetail = (
-  document: NonNullable<Awaited<ReturnType<typeof findDocumentById>>>,
-) => {
+const mapDocumentDetail = (document: NonNullable<Awaited<ReturnType<typeof findDocumentById>>>) => {
   return {
     ...mapDocumentItem(document),
     rawText: document.rawText,
