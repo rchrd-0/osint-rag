@@ -21,8 +21,10 @@
       "dependencies": {
         "@ai-sdk/devtools": "^0.0.2",
         "@ai-sdk/google": "^3.0.1",
+        "@hono/zod-validator": "^0.8.0",
         "@osint-rag/db": "workspace:*",
         "@osint-rag/env": "workspace:*",
+        "@osint-rag/schemas": "workspace:*",
         "@osint-rag/types": "workspace:*",
         "ai": "catalog:",
         "dotenv": "catalog:",
@@ -43,6 +45,7 @@
         "@ai-sdk/react": "^3.0.3",
         "@hookform/resolvers": "^5.2.2",
         "@osint-rag/env": "workspace:*",
+        "@osint-rag/schemas": "workspace:*",
         "@osint-rag/types": "workspace:*",
         "@osint-rag/ui": "workspace:*",
         "@tailwindcss/vite": "^4.2.2",
@@ -102,6 +105,17 @@
       "dependencies": {
         "@t3-oss/env-core": "^0.13.1",
         "dotenv": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@osint-rag/config": "workspace:*",
+        "@types/bun": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/schemas": {
+      "name": "@osint-rag/schemas",
+      "dependencies": {
         "zod": "catalog:",
       },
       "devDependencies": {
@@ -289,6 +303,8 @@
 
     "@hono/node-server": ["@hono/node-server@1.19.14", "", { "peerDependencies": { "hono": "^4" } }, "sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw=="],
 
+    "@hono/zod-validator": ["@hono/zod-validator@0.8.0", "", { "peerDependencies": { "hono": ">=4.10.0", "zod": "^3.25.0 || ^4.0.0" } }, "sha512-5uS4S1/LKtZQYvD4BtpPUFkOv8d1wNxHHrChm26buMiEYc1FrHWvDUaKVBwkiVtvSExHSpLGDvcnpI2Copyj9w=="],
+
     "@hookform/resolvers": ["@hookform/resolvers@5.2.2", "", { "dependencies": { "@standard-schema/utils": "^0.3.0" }, "peerDependencies": { "react-hook-form": "^7.55.0" } }, "sha512-A/IxlMLShx3KjV/HeTcTfaMxdwy690+L/ZADoeaTltLx+CVuzkeVIPuybK3jrRfw7YZnmdKsVVHAlEPIAEUNlA=="],
 
     "@iconify/types": ["@iconify/types@2.0.0", "", {}, "sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg=="],
@@ -350,6 +366,8 @@
     "@osint-rag/db": ["@osint-rag/db@workspace:packages/db"],
 
     "@osint-rag/env": ["@osint-rag/env@workspace:packages/env"],
+
+    "@osint-rag/schemas": ["@osint-rag/schemas@workspace:packages/schemas"],
 
     "@osint-rag/types": ["@osint-rag/types@workspace:packages/types"],
 

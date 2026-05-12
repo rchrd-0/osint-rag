@@ -12,6 +12,7 @@
     "paths": {
       "@/*": ["./src/*"],
       "@osint-rag/types": ["../../packages/types/index.ts"],
+      "@osint-rag/schemas": ["../../packages/schemas/index.ts"],
       "@osint-rag/ui/*": ["../../packages/ui/src/*"]
     }
   }
