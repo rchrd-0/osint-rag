@@ -38,8 +38,15 @@ type GuardianDocumentInsert = {
   publishedAt: Date | null;
 };
 
+type GuardianSearchOptions = {
+  query: string;
+  pageSize: number;
+  fromDate?: string;
+};
+
 const GUARDIAN_API_BASE_URL = "https://content.guardianapis.com";
-const SEARCH_QUERY = "ai OR economy OR hong kong OR film OR cinema";
+const DEFAULT_SEARCH_QUERY = "ai OR economy OR hong kong OR film OR cinema";
+const DEFAULT_PAGE_SIZE = 100;
 
 const getUrlBase = (targetUrl: string = GUARDIAN_API_BASE_URL) => {
   const url = new URL(targetUrl);
@@ -48,12 +55,71 @@ const getUrlBase = (targetUrl: string = GUARDIAN_API_BASE_URL) => {
   return url;
 };
 
-export const searchGuardianArticles = async (fromDate?: string) => {
+const parseGuardianCliOptions = (): GuardianSearchOptions => {
+  const options: GuardianSearchOptions = {
+    query: DEFAULT_SEARCH_QUERY,
+    pageSize: DEFAULT_PAGE_SIZE,
+  };
+
+  const args = process.argv.slice(2);
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (!arg) {
+      continue;
+    }
+
+    if (arg === "--help" || arg === "-h") {
+      console.log(`
+Usage: bun run src/scripts/guardian-ingest.ts [options]
+
+Options:
+  --query, -q       Guardian search query
+  --page-size, -p   Number of results to fetch for the first page
+  --from-date       Optional from-date filter (YYYY-MM-DD)
+`);
+      process.exit(0);
+    }
+
+    const nextValue = args[index + 1];
+
+    if ((arg === "--query" || arg === "-q") && nextValue) {
+      options.query = nextValue;
+      index += 1;
+      continue;
+    }
+
+    if ((arg === "--page-size" || arg === "-p") && nextValue) {
+      const parsedPageSize = Number(nextValue);
+
+      if (!Number.isInteger(parsedPageSize) || parsedPageSize <= 0) {
+        throw new Error(`Invalid page size: ${nextValue}`);
+      }
+
+      options.pageSize = parsedPageSize;
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--from-date" && nextValue) {
+      options.fromDate = nextValue;
+      index += 1;
+      continue;
+    }
+
+    throw new Error(`Unknown or incomplete argument: ${arg}`);
+  }
+
+  return options;
+};
+
+export const searchGuardianArticles = async ({ query, pageSize, fromDate }: GuardianSearchOptions) => {
   const url = getUrlBase();
   url.pathname = "/search";
-  url.searchParams.set("q", SEARCH_QUERY);
+  url.searchParams.set("q", query);
   url.searchParams.set("show-fields", "byline,bodyText");
-  url.searchParams.set("page-size", "100");
+  url.searchParams.set("page-size", String(pageSize));
   if (fromDate) {
     url.searchParams.set("from-date", fromDate);
   }
@@ -146,10 +212,13 @@ export const insertGuardianDocument = async (data: GuardianDocumentInsert) => {
   }
 };
 
-export const runGuardianIngest = async (): Promise<void> => {
-  const articles = await searchGuardianArticles();
+export const runGuardianIngest = async (options: GuardianSearchOptions): Promise<void> => {
+  const articles = await searchGuardianArticles(options);
 
   const found = articles.length;
+  console.log(
+    `Guardian ingest config\n\nQuery: ${options.query}\nPage size: ${options.pageSize}\nFrom date: ${options.fromDate ?? "-"}\n`,
+  );
   console.log(`Found ${found} articles from The Guardian\n`);
 
   let invalid = 0;
@@ -199,7 +268,9 @@ Failed:     ${failed}
   );
 };
 
-await runGuardianIngest()
+const cliOptions = parseGuardianCliOptions();
+
+await runGuardianIngest(cliOptions)
   .catch((error) => {
     console.error("Guardian ingest failed: ", error);
     process.exitCode = 1;
