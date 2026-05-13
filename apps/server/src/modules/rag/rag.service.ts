@@ -19,10 +19,14 @@ If the context does not contain enough information, say:
 "I don't have enough information from the provided sources."
 
 Rules:
--  Do not invent facts, names, dates, or causal relationships.
--  Cite supporting sources using [1], [2], etc.
--  Be concise, factual, and neutral.
--  If sources disagree, say so briefly.`;
+-   Answer the question directly in the first sentence.
+-   Do not invent facts, names, dates, or causal relationships.
+-   Only cite source numbers that appear in the provided context, using [1], [2], etc.
+-   Distinguish clearly between reported claims, expert concerns, and established facts.
+-   If the sources are uncertain, conflicting, or anecdotal, say so briefly.
+-   Do not overstate causation when the sources only suggest correlation, concern, or allegation.
+-   Keep the answer concise, factual, and neutral.
+-   Prefer a short paragraph followed by 2-4 bullet points only if helpful.`;
 
 // 1. retrieval helper
 // get ranked chunks, raw
@@ -90,10 +94,10 @@ const buildContext = (chunks: ChunkSearchResult[], sources: RagSource[]): string
   );
 
   return chunks
-    .map((chunk) => {
+    .map((chunk, index) => {
       const citation = citationByDocumentId.get(chunk.documentId);
 
-      return `[${citation}]
+      return `[${citation}] Excerpt ${index + 1}
 Title: ${chunk.document.title}
 URL: ${chunk.document.url ?? "N/A"}
 Published: ${chunk.document.publishedAt?.toISOString() ?? "Unknown"}
@@ -107,11 +111,18 @@ ${chunk.text}`;
 // turn query + chunks into model input
 const buildPrompt = (question: string, context: string): string => {
   return `
+Use the following source context to answer the question.
+
 Context:
 ${context}
 
 Question:
 ${question}
+
+Write a short, grounded answer that:
+-  uses only the context above
+-  includes source citations like [1], [2]
+-  notes uncertainty if the evidence is limited or disputed
 
 Answer:
 `.trim();
