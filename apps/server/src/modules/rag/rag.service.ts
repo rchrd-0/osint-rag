@@ -119,8 +119,10 @@ Answer:
 
 // 6. main orchestrator
 export const runRagQuery = async (query: string, limit: number, chunksPerDocument = 2) => {
+  const startedAt = performance.now();
   const retrievalLimit = limit * OVERFETCH_FACTOR;
   const retrievedChunks = await getRankedChunks(query, retrievalLimit);
+  const retrievalLatencyMs = Math.round(performance.now() - startedAt);
   if (!retrievedChunks.length) {
     return {
       answer: "No relevant information found in the document collection.",
@@ -134,6 +136,11 @@ export const runRagQuery = async (query: string, limit: number, chunksPerDocumen
         used: 0,
         chunksPerDocument,
         noResults: true,
+        latency: {
+          retrievalMs: retrievalLatencyMs,
+          generationMs: 0,
+          totalMs: retrievalLatencyMs,
+        },
       },
     };
   }
@@ -146,11 +153,15 @@ export const runRagQuery = async (query: string, limit: number, chunksPerDocumen
   const context = buildContext(selectedChunks, sources);
   const prompt = buildPrompt(query, context);
 
+  const generationStartedAt = performance.now();
   const result = await generateText({
     model: openrouter.chat("google/gemini-2.5-flash-lite"),
     system: SYSTEM_PROMPT,
     prompt,
   });
+
+  const generationLatencyMs = Math.round(performance.now() - generationStartedAt);
+  const totalLatencyMs = Math.round(performance.now() - startedAt);
 
   console.dir(
     {
@@ -162,6 +173,11 @@ export const runRagQuery = async (query: string, limit: number, chunksPerDocumen
         outputTokens: result.usage?.outputTokens,
         totalTokens: result.usage?.totalTokens,
         cost: result.usage?.raw?.cost,
+      },
+      latency: {
+        retrievalMs: retrievalLatencyMs,
+        generationMs: generationLatencyMs,
+        totalMs: totalLatencyMs,
       },
     },
     { depth: null },
@@ -181,6 +197,11 @@ export const runRagQuery = async (query: string, limit: number, chunksPerDocumen
       usage: result.usage,
       finishReason: result.finishReason,
       noResults: false,
+      latency: {
+        retrievalMs: retrievalLatencyMs,
+        generationMs: generationLatencyMs,
+        totalMs: totalLatencyMs,
+      },
     },
     // remove
     context,
