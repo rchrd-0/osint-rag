@@ -44,3 +44,25 @@ model Chunk {
   @@index([documentId])
   @@map("chunks")
 }
+
+model QueryLog {
+  id               String   @id @default(cuid())
+  queryText        String   @map("query_text")
+  strategy         String
+  model            String
+  answer           String?
+  latencyMs        Int      @map("latency_ms")
+  chunksRetrieved  Int      @map("chunks_retrieved")
+  chunksUsed       Int      @map("chunks_used")
+  sourceCount      Int      @map("source_count")
+  promptTokens     Int?     @map("prompt_tokens")
+  completionTokens Int?     @map("completion_tokens")
+  totalTokens      Int?     @map("total_tokens")
+  success          Boolean  @default(true)
+  errorMessage     String?  @map("error_message")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([success])
+  @@map("query_logs")
+}

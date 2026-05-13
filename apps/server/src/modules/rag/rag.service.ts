@@ -149,16 +149,6 @@ export const runRagQuery = async (query: string, limit: number, chunksPerDocumen
   const result = await generateText({
     model: openrouter.chat("google/gemini-2.5-flash-lite"),
     system: SYSTEM_PROMPT,
-
-    // providerOptions: {
-    //   openrouter: {
-    //     reasoning: {
-    //       effort: "high",
-    //       exclude: false,
-    //       max_tokens: 2000,
-    //     },
-    //   },
-    // },
     prompt,
   });
 
