@@ -58,6 +58,7 @@ model QueryLog {
   promptTokens     Int?     @map("prompt_tokens")
   completionTokens Int?     @map("completion_tokens")
   totalTokens      Int?     @map("total_tokens")
+  finishReason     String?  @map("finish_reason")
   success          Boolean  @default(true)
   errorMessage     String?  @map("error_message")
   createdAt        DateTime @default(now()) @map("created_at")

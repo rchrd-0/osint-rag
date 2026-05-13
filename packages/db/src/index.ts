@@ -3,7 +3,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../prisma/generated/client";
 
-export type { Chunk, Document } from "../prisma/generated/client";
+export type { Chunk, Document, QueryLog } from "../prisma/generated/client";
 
 export { Prisma } from "../prisma/generated/client";
 
