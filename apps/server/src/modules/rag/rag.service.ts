@@ -121,6 +121,23 @@ Answer:
 export const runRagQuery = async (query: string, limit: number, chunksPerDocument = 2) => {
   const retrievalLimit = limit * OVERFETCH_FACTOR;
   const retrievedChunks = await getRankedChunks(query, retrievalLimit);
+  if (!retrievedChunks.length) {
+    return {
+      answer: "No relevant information found in the document collection.",
+      chunks: [],
+      sources: [],
+      meta: {
+        query,
+        strategy: "fts",
+        requestedLimit: limit,
+        retrievalLimit,
+        used: 0,
+        chunksPerDocument,
+        noResults: true,
+      },
+    };
+  }
+
   // @TODO: v2, round robin to minimise rank greed
   const cappedChunks = capChunksPerDocument(retrievedChunks, chunksPerDocument);
   const selectedChunks = cappedChunks.slice(0, limit);
@@ -173,6 +190,7 @@ export const runRagQuery = async (query: string, limit: number, chunksPerDocumen
       chunksPerDocument,
       usage: result.usage,
       finishReason: result.finishReason,
+      noResults: false,
     },
     // remove
     context,
