@@ -1,6 +1,6 @@
 import prisma from "@osint-rag/db";
 
-type ChunkSearchResult = {
+export type ChunkSearchResult = {
   id: string;
   documentId: string;
   chunkIndex: number;

@@ -11,6 +11,7 @@ import { ZodError } from "zod";
 
 import documentsRoutes from "@/modules/documents/documents.routes";
 import healthRoutes from "@/modules/health/health.routes";
+import ragRoutes from "@/modules/rag/rag.routes";
 import searchRoutes from "@/modules/search/search.routes";
 
 const app = new Hono();
@@ -90,6 +91,8 @@ app.route("/", healthRoutes);
 app.route("/documents", documentsRoutes);
 
 app.route("/search", searchRoutes);
+
+app.route("/rag", ragRoutes);
 
 export default {
   port: env.PORT,

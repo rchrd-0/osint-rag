@@ -41,6 +41,7 @@
   "dependencies": {
     "@osint-rag/env": "workspace:*",
     "dotenv": "catalog:",
+    "ai": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
