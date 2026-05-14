@@ -1,15 +1,13 @@
 import { generateText } from "ai";
 import { openrouter } from "@/lib/ai/openrouter";
 import { type ChunkSearchResult, searchChunksFullText } from "@/modules/search/search.repository";
-
-type RagSource = {
-  citation: number;
-  documentId: string;
-  title: string;
-  url: string | null;
-  publishedAt: Date | null;
-  chunkIds: string[];
-};
+import { MODEL_ID, NO_ANSWER_TEXT, type RagSource } from "./rag.constants";
+import {
+  type GenerateTextResult,
+  logRagFailure,
+  logRagNoResults,
+  logRagSuccess,
+} from "./rag.logging";
 
 const OVERFETCH_FACTOR = 3;
 const SYSTEM_PROMPT = `You are an OSINT research assistant.
@@ -130,13 +128,15 @@ Answer:
 
 // 6. main orchestrator
 export const runRagQuery = async (query: string, limit: number, chunksPerDocument = 2) => {
-  const startedAt = performance.now();
   const retrievalLimit = limit * OVERFETCH_FACTOR;
+  const startedAt = performance.now();
   const retrievedChunks = await getRankedChunks(query, retrievalLimit);
   const retrievalLatencyMs = Math.round(performance.now() - startedAt);
   if (!retrievedChunks.length) {
+    void logRagNoResults({ query, latencyMs: retrievalLatencyMs });
+
     return {
-      answer: "No relevant information found in the document collection.",
+      answer: NO_ANSWER_TEXT,
       chunks: [],
       sources: [],
       meta: {
@@ -165,11 +165,27 @@ export const runRagQuery = async (query: string, limit: number, chunksPerDocumen
   const prompt = buildPrompt(query, context);
 
   const generationStartedAt = performance.now();
-  const result = await generateText({
-    model: openrouter.chat("google/gemini-2.5-flash-lite"),
-    system: SYSTEM_PROMPT,
-    prompt,
-  });
+
+  let result: GenerateTextResult;
+  try {
+    result = await generateText({
+      model: openrouter.chat(MODEL_ID),
+      system: SYSTEM_PROMPT,
+      prompt,
+    });
+  } catch (error) {
+    const failureLatencyMs = Math.round(performance.now() - startedAt);
+
+    void logRagFailure({
+      query,
+      latencyMs: failureLatencyMs,
+      retrievedChunks,
+      selectedChunks,
+      sources,
+      error,
+    });
+    throw error;
+  }
 
   const generationLatencyMs = Math.round(performance.now() - generationStartedAt);
   const totalLatencyMs = Math.round(performance.now() - startedAt);
@@ -193,6 +209,15 @@ export const runRagQuery = async (query: string, limit: number, chunksPerDocumen
     },
     { depth: null },
   );
+
+  void logRagSuccess({
+    query,
+    latencyMs: totalLatencyMs,
+    retrievedChunks,
+    selectedChunks,
+    sources,
+    result,
+  });
 
   return {
     answer: result.text,

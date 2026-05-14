@@ -114,7 +114,11 @@ Options:
   return options;
 };
 
-export const searchGuardianArticles = async ({ query, pageSize, fromDate }: GuardianSearchOptions) => {
+export const searchGuardianArticles = async ({
+  query,
+  pageSize,
+  fromDate,
+}: GuardianSearchOptions) => {
   const url = getUrlBase();
   url.pathname = "/search";
   url.searchParams.set("q", query);
