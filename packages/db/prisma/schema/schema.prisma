@@ -59,6 +59,7 @@ model QueryLog {
   completionTokens Int?     @map("completion_tokens")
   totalTokens      Int?     @map("total_tokens")
   finishReason     String?  @map("finish_reason")
+  cost             Decimal? @map("cost") @db.Decimal(12, 8)
   success          Boolean  @default(true)
   errorMessage     String?  @map("error_message")
   createdAt        DateTime @default(now()) @map("created_at")
