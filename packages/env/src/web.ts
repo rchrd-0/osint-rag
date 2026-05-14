@@ -6,6 +6,7 @@ export const env = createEnv({
   client: {
     VITE_SERVER_URL: z.url(),
   },
+  // biome-ignore lint/suspicious/noExplicitAny: safe
   runtimeEnv: (import.meta as any).env,
   emptyStringAsUndefined: true,
 });

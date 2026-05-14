@@ -17,6 +17,7 @@ export const chunkText = (rawText: string, maxChars = 1500) => {
   let input: string[];
 
   if (paragraphs.length === 1) {
+    // biome-ignore lint/style/noNonNullAssertion: safe
     input = splitOnSentence(paragraphs[0]!);
   } else {
     input = paragraphs;

@@ -1,7 +1,8 @@
 import type { generateText } from "ai";
 import { persistQueryLogSafe } from "@/modules/query-log/query-log.service";
 import type { ChunkSearchResult } from "@/modules/search/search.repository";
-import { MODEL_ID, NO_ANSWER_TEXT, type RagSource } from "./rag.constants";
+import { MODEL_ID, NO_ANSWER_TEXT } from "./rag.constants";
+import type { RagSourceRecord } from "./rag.types";
 
 export type GenerateTextResult = Awaited<ReturnType<typeof generateText>>;
 
@@ -24,7 +25,7 @@ export const logRagFailure = (params: {
   latencyMs: number;
   retrievedChunks: ChunkSearchResult[];
   selectedChunks: ChunkSearchResult[];
-  sources: RagSource[];
+  sources: RagSourceRecord[];
   error: unknown;
 }) =>
   persistQueryLogSafe({
@@ -46,7 +47,7 @@ export const logRagSuccess = (params: {
   latencyMs: number;
   retrievedChunks: ChunkSearchResult[];
   selectedChunks: ChunkSearchResult[];
-  sources: RagSource[];
+  sources: RagSourceRecord[];
   result: GenerateTextResult;
 }) => {
   const rawCost = params.result.usage?.raw?.cost;

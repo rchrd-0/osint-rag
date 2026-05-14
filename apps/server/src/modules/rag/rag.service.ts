@@ -1,13 +1,16 @@
+import type { RagQueryInput } from "@osint-rag/schemas";
+import type { RagUsage } from "@osint-rag/types";
 import { generateText } from "ai";
 import { openrouter } from "@/lib/ai/openrouter";
 import { type ChunkSearchResult, searchChunksFullText } from "@/modules/search/search.repository";
-import { MODEL_ID, NO_ANSWER_TEXT, type RagSource } from "./rag.constants";
+import { MODEL_ID, NO_ANSWER_TEXT } from "./rag.constants";
 import {
   type GenerateTextResult,
   logRagFailure,
   logRagNoResults,
   logRagSuccess,
 } from "./rag.logging";
+import type { RagResult, RagSourceRecord } from "./rag.types";
 
 const OVERFETCH_FACTOR = 3;
 const SYSTEM_PROMPT = `You are an OSINT research assistant.
@@ -25,6 +28,30 @@ Rules:
 -   Do not overstate causation when the sources only suggest correlation, concern, or allegation.
 -   Keep the answer concise, factual, and neutral.
 -   Prefer a short paragraph followed by 2-4 bullet points only if helpful.`;
+
+const toRagUsage = (usage?: {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  raw?: unknown;
+}): RagUsage | undefined => {
+  if (!usage) {
+    return undefined;
+  }
+
+  const { inputTokens, outputTokens, totalTokens, raw } = usage;
+
+  if (raw !== undefined && raw !== null && typeof raw === "object") {
+    return {
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      raw: raw as RagUsage["raw"],
+    };
+  }
+
+  return { inputTokens, outputTokens, totalTokens };
+};
 
 // 1. retrieval helper
 // get ranked chunks, raw
@@ -61,8 +88,8 @@ const capChunksPerDocument = (
 // derive unique source list
 // one source entry per distinct document
 // for client display
-const buildSources = (chunks: ChunkSearchResult[]): RagSource[] => {
-  const sourceByDocumentId = new Map<string, RagSource>();
+const buildSources = (chunks: ChunkSearchResult[]): RagSourceRecord[] => {
+  const sourceByDocumentId = new Map<string, RagSourceRecord>();
 
   for (const chunk of chunks) {
     const existing = sourceByDocumentId.get(chunk.documentId);
@@ -86,7 +113,7 @@ const buildSources = (chunks: ChunkSearchResult[]): RagSource[] => {
 };
 
 // 4. build context
-const buildContext = (chunks: ChunkSearchResult[], sources: RagSource[]): string => {
+const buildContext = (chunks: ChunkSearchResult[], sources: RagSourceRecord[]): string => {
   const citationByDocumentId = new Map(
     sources.map((source) => [source.documentId, source.citation]),
   );
@@ -127,7 +154,11 @@ Answer:
 };
 
 // 6. main orchestrator
-export const runRagQuery = async (query: string, limit: number, chunksPerDocument = 2) => {
+export const runRagQuery = async (
+  input: RagQueryInput,
+  chunksPerDocument = 2,
+): Promise<RagResult> => {
+  const { query, limit } = input;
   const retrievalLimit = limit * OVERFETCH_FACTOR;
   const startedAt = performance.now();
   const retrievedChunks = await getRankedChunks(query, retrievalLimit);
@@ -137,21 +168,14 @@ export const runRagQuery = async (query: string, limit: number, chunksPerDocumen
 
     return {
       answer: NO_ANSWER_TEXT,
+      retrievalLimit,
+      chunksPerDocument,
       chunks: [],
       sources: [],
-      meta: {
-        query,
-        strategy: "fts",
-        requestedLimit: limit,
-        retrievalLimit,
-        used: 0,
-        chunksPerDocument,
-        noResults: true,
-        latency: {
-          retrievalMs: retrievalLatencyMs,
-          generationMs: 0,
-          totalMs: retrievalLatencyMs,
-        },
+      latency: {
+        retrievalMs: retrievalLatencyMs,
+        generationMs: 0,
+        totalMs: retrievalLatencyMs,
       },
     };
   }
@@ -221,25 +245,16 @@ export const runRagQuery = async (query: string, limit: number, chunksPerDocumen
 
   return {
     answer: result.text,
+    retrievalLimit,
+    chunksPerDocument,
     chunks: selectedChunks,
     sources,
-    meta: {
-      query,
-      strategy: "fts",
-      requestedLimit: limit,
-      retrievalLimit,
-      used: selectedChunks.length,
-      chunksPerDocument,
-      usage: result.usage,
-      finishReason: result.finishReason,
-      noResults: false,
-      latency: {
-        retrievalMs: retrievalLatencyMs,
-        generationMs: generationLatencyMs,
-        totalMs: totalLatencyMs,
-      },
+    latency: {
+      retrievalMs: retrievalLatencyMs,
+      generationMs: generationLatencyMs,
+      totalMs: totalLatencyMs,
     },
-    // remove
-    // context,
+    usage: toRagUsage(result.usage),
+    finishReason: result.finishReason,
   };
 };

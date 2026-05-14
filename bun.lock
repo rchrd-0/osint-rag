@@ -118,6 +118,7 @@
       },
       "devDependencies": {
         "@osint-rag/config": "workspace:*",
+        "@osint-rag/types": "workspace:*",
         "@types/bun": "catalog:",
         "typescript": "catalog:",
       },
@@ -126,6 +127,7 @@
       "name": "@osint-rag/types",
       "devDependencies": {
         "@osint-rag/config": "workspace:*",
+        "@osint-rag/schemas": "workspace:*",
         "@types/bun": "catalog:",
         "typescript": "catalog:",
       },

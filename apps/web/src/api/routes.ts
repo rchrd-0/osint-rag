@@ -1,11 +1,5 @@
-import type { DocumentBase, DocumentItem } from "@osint-rag/types";
+import type { DocumentDetailResponse, DocumentItem } from "@osint-rag/types";
 import { apiClient } from "@/api/client";
-
-type DocumentDetailResponse = DocumentBase & {
-  rawText: string;
-  createdAt: string;
-  updatedAt: string;
-};
 
 export const api = {
   health: {

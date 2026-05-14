@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "@osint-rag/config": "workspace:*",
+    "@osint-rag/types": "workspace:*",
     "@types/bun": "catalog:",
     "typescript": "catalog:"
   }
