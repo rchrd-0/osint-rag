@@ -1,7 +1,4 @@
-import { devToolsMiddleware } from "@ai-sdk/devtools";
-import { google } from "@ai-sdk/google";
 import { env } from "@osint-rag/env/server";
-import { convertToModelMessages, streamText, wrapLanguageModel } from "ai";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
@@ -69,21 +66,6 @@ app.notFound((c) => {
     },
     404,
   );
-});
-
-app.post("/ai", async (c) => {
-  const body = await c.req.json();
-  const uiMessages = body.messages || [];
-  const model = wrapLanguageModel({
-    model: google("gemini-2.5-flash"),
-    middleware: devToolsMiddleware(),
-  });
-  const result = streamText({
-    model,
-    messages: await convertToModelMessages(uiMessages),
-  });
-
-  return result.toUIMessageStreamResponse();
 });
 
 app.route("/", healthRoutes);

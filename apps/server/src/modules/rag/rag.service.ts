@@ -190,25 +190,25 @@ export const runRagQuery = async (query: string, limit: number, chunksPerDocumen
   const generationLatencyMs = Math.round(performance.now() - generationStartedAt);
   const totalLatencyMs = Math.round(performance.now() - startedAt);
 
-  console.dir(
-    {
-      preview: result.text.slice(0, 300),
-      finishReason: result.finishReason,
-      sourceCount: sources.length,
-      usage: {
-        inputTokens: result.usage?.inputTokens,
-        outputTokens: result.usage?.outputTokens,
-        totalTokens: result.usage?.totalTokens,
-        cost: result.usage?.raw?.cost,
-      },
-      latency: {
-        retrievalMs: retrievalLatencyMs,
-        generationMs: generationLatencyMs,
-        totalMs: totalLatencyMs,
-      },
-    },
-    { depth: null },
-  );
+  // console.dir(
+  //   {
+  //     preview: result.text.slice(0, 300),
+  //     finishReason: result.finishReason,
+  //     sourceCount: sources.length,
+  //     usage: {
+  //       inputTokens: result.usage?.inputTokens,
+  //       outputTokens: result.usage?.outputTokens,
+  //       totalTokens: result.usage?.totalTokens,
+  //       cost: result.usage?.raw?.cost,
+  //     },
+  //     latency: {
+  //       retrievalMs: retrievalLatencyMs,
+  //       generationMs: generationLatencyMs,
+  //       totalMs: totalLatencyMs,
+  //     },
+  //   },
+  //   { depth: null },
+  // );
 
   void logRagSuccess({
     query,
@@ -240,6 +240,6 @@ export const runRagQuery = async (query: string, limit: number, chunksPerDocumen
       },
     },
     // remove
-    context,
+    // context,
   };
 };

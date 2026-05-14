@@ -12,8 +12,6 @@
     "ingest:guardian": "bun run src/scripts/guardian-ingest.ts"
   },
   "dependencies": {
-    "@ai-sdk/devtools": "^0.0.2",
-    "@ai-sdk/google": "^3.0.73",
     "@hono/zod-validator": "^0.8.0",
     "@openrouter/ai-sdk-provider": "^2.9.0",
     "@osint-rag/db": "workspace:*",
