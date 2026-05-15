@@ -1,4 +1,4 @@
-import type { RagUsage } from "@osint-rag/types";
+import type { RagLatency, RagUsage } from "@osint-rag/types";
 import type { ChunkSearchResult } from "@/modules/search/search.repository";
 
 export type RagSourceRecord = {
@@ -10,17 +10,25 @@ export type RagSourceRecord = {
   chunkIds: string[];
 };
 
+export type RagQueryContext = {
+  query: string;
+  retrievalLimit: number;
+  chunksPerDocument: number;
+  retrievedChunks: ChunkSearchResult[];
+  selectedChunks: ChunkSearchResult[];
+  sources: RagSourceRecord[];
+  context: string;
+  prompt: string;
+  retrievalLatencyMs: number;
+};
+
 export type RagResult = {
   answer: string;
   retrievalLimit: number;
   chunksPerDocument: number;
   chunks: ChunkSearchResult[];
   sources: RagSourceRecord[];
-  latency: {
-    retrievalMs: number;
-    generationMs: number;
-    totalMs: number;
-  };
+  latency: RagLatency;
   usage?: RagUsage;
   finishReason?: string;
 };

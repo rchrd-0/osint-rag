@@ -10,7 +10,7 @@ import {
   logRagNoResults,
   logRagSuccess,
 } from "./rag.logging";
-import type { RagResult, RagSourceRecord } from "./rag.types";
+import type { RagQueryContext, RagResult, RagSourceRecord } from "./rag.types";
 
 const OVERFETCH_FACTOR = 3;
 const SYSTEM_PROMPT = `You are an OSINT research assistant.
@@ -153,32 +153,17 @@ Answer:
 `.trim();
 };
 
-// 6. main orchestrator
-export const runRagQuery = async (
+// 6. build context
+const buildRagContext = async (
   input: RagQueryInput,
   chunksPerDocument = 2,
-): Promise<RagResult> => {
+): Promise<RagQueryContext> => {
   const { query, limit } = input;
   const retrievalLimit = limit * OVERFETCH_FACTOR;
   const startedAt = performance.now();
+
   const retrievedChunks = await getRankedChunks(query, retrievalLimit);
   const retrievalLatencyMs = Math.round(performance.now() - startedAt);
-  if (!retrievedChunks.length) {
-    void logRagNoResults({ query, latencyMs: retrievalLatencyMs });
-
-    return {
-      answer: NO_ANSWER_TEXT,
-      retrievalLimit,
-      chunksPerDocument,
-      chunks: [],
-      sources: [],
-      latency: {
-        retrievalMs: retrievalLatencyMs,
-        generationMs: 0,
-        totalMs: retrievalLatencyMs,
-      },
-    };
-  }
 
   // @TODO: v2, round robin to minimise rank greed
   const cappedChunks = capChunksPerDocument(retrievedChunks, chunksPerDocument);
@@ -188,6 +173,43 @@ export const runRagQuery = async (
   const context = buildContext(selectedChunks, sources);
   const prompt = buildPrompt(query, context);
 
+  return {
+    query,
+    retrievalLimit,
+    chunksPerDocument,
+    retrievedChunks,
+    selectedChunks,
+    sources,
+    context,
+    prompt,
+    retrievalLatencyMs,
+  };
+};
+
+// 7. main orchestrator
+export const runRagQuery = async (
+  input: RagQueryInput,
+  chunksPerDocument = 2,
+): Promise<RagResult> => {
+  const startedAt = performance.now();
+  const context = await buildRagContext(input, chunksPerDocument);
+
+  if (!context.selectedChunks.length) {
+    void logRagNoResults({ query: context.query, latencyMs: context.retrievalLatencyMs });
+    return {
+      answer: NO_ANSWER_TEXT,
+      retrievalLimit: context.retrievalLimit,
+      chunksPerDocument,
+      chunks: [],
+      sources: [],
+      latency: {
+        retrievalMs: context.retrievalLatencyMs,
+        generationMs: 0,
+        totalMs: context.retrievalLatencyMs,
+      },
+    };
+  }
+
   const generationStartedAt = performance.now();
 
   let result: GenerateTextResult;
@@ -195,17 +217,17 @@ export const runRagQuery = async (
     result = await generateText({
       model: openrouter.chat(MODEL_ID),
       system: SYSTEM_PROMPT,
-      prompt,
+      prompt: context.prompt,
     });
   } catch (error) {
     const failureLatencyMs = Math.round(performance.now() - startedAt);
 
     void logRagFailure({
-      query,
+      query: context.query,
       latencyMs: failureLatencyMs,
-      retrievedChunks,
-      selectedChunks,
-      sources,
+      retrievedChunks: context.retrievedChunks,
+      selectedChunks: context.selectedChunks,
+      sources: context.sources,
       error,
     });
     throw error;
@@ -214,43 +236,23 @@ export const runRagQuery = async (
   const generationLatencyMs = Math.round(performance.now() - generationStartedAt);
   const totalLatencyMs = Math.round(performance.now() - startedAt);
 
-  // console.dir(
-  //   {
-  //     preview: result.text.slice(0, 300),
-  //     finishReason: result.finishReason,
-  //     sourceCount: sources.length,
-  //     usage: {
-  //       inputTokens: result.usage?.inputTokens,
-  //       outputTokens: result.usage?.outputTokens,
-  //       totalTokens: result.usage?.totalTokens,
-  //       cost: result.usage?.raw?.cost,
-  //     },
-  //     latency: {
-  //       retrievalMs: retrievalLatencyMs,
-  //       generationMs: generationLatencyMs,
-  //       totalMs: totalLatencyMs,
-  //     },
-  //   },
-  //   { depth: null },
-  // );
-
   void logRagSuccess({
-    query,
+    query: context.query,
     latencyMs: totalLatencyMs,
-    retrievedChunks,
-    selectedChunks,
-    sources,
+    retrievedChunks: context.retrievedChunks,
+    selectedChunks: context.selectedChunks,
+    sources: context.sources,
     result,
   });
 
   return {
     answer: result.text,
-    retrievalLimit,
+    retrievalLimit: context.retrievalLimit,
     chunksPerDocument,
-    chunks: selectedChunks,
-    sources,
+    chunks: context.selectedChunks,
+    sources: context.sources,
     latency: {
-      retrievalMs: retrievalLatencyMs,
+      retrievalMs: context.retrievalLatencyMs,
       generationMs: generationLatencyMs,
       totalMs: totalLatencyMs,
     },
