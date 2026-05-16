@@ -44,16 +44,12 @@ export type RagQueryMeta = {
   latency: RagLatency;
 };
 
-export type RagDebugMeta = {
+export type RagFullQueryMeta = RagQueryMeta & {
   query: string;
-  strategy: QueryStrategy;
   requestedLimit: number;
   retrievalLimit: number;
   used: number;
   chunksPerDocument: number;
-  noResults: boolean;
-  sourceCount: number;
-  latency: RagLatency;
   usage?: RagUsage;
   finishReason?: string;
 };
@@ -64,7 +60,9 @@ export type RagQueryResponse = {
   meta: RagQueryMeta;
 };
 
-export type RagDebugQueryResponse = RagQueryResponse & {
+export type RagFullQueryResponse = RagQueryResponse & {
   chunks: RagChunk[];
-  meta: RagDebugMeta;
+  meta: RagFullQueryMeta;
 };
+
+export type RagUIMessage = {};

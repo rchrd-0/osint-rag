@@ -1,8 +1,16 @@
 import type { RagQueryInput } from "@osint-rag/schemas";
-import type { RagUsage } from "@osint-rag/types";
+import type {
+  RagChunk,
+  RagFullQueryResponse,
+  RagLatency,
+  RagQueryResponse,
+  RagSource,
+  RagUsage,
+} from "@osint-rag/types";
 import { generateText } from "ai";
 import { openrouter } from "@/lib/ai/openrouter";
 import { type ChunkSearchResult, searchChunksFullText } from "@/modules/search/search.repository";
+import { dateToIsoString } from "@/utils/format";
 import { MODEL_ID, NO_ANSWER_TEXT } from "./rag.constants";
 import {
   type GenerateTextResult,
@@ -10,7 +18,7 @@ import {
   logRagNoResults,
   logRagSuccess,
 } from "./rag.logging";
-import type { RagQueryContext, RagResult, RagSourceRecord } from "./rag.types";
+import type { RagQueryContext } from "./rag.types";
 
 const OVERFETCH_FACTOR = 3;
 const SYSTEM_PROMPT = `You are an OSINT research assistant.
@@ -29,6 +37,7 @@ Rules:
 -   Keep the answer concise, factual, and neutral.
 -   Prefer a short paragraph followed by 2-4 bullet points only if helpful.`;
 
+// helpers
 const toRagUsage = (usage?: {
   inputTokens?: number;
   outputTokens?: number;
@@ -53,16 +62,69 @@ const toRagUsage = (usage?: {
   return { inputTokens, outputTokens, totalTokens };
 };
 
+const toRagChunks = (chunks: ChunkSearchResult[]): RagChunk[] =>
+  chunks.map((chunk) => ({
+    id: chunk.id,
+    documentId: chunk.documentId,
+    chunkIndex: chunk.chunkIndex,
+    text: chunk.text,
+    document: {
+      url: chunk.document.url,
+      title: chunk.document.title,
+      publishedAt: dateToIsoString(chunk.document.publishedAt),
+    },
+    rank: chunk.rank ?? null,
+  }));
+
+const buildFullRagQueryResponse = (params: {
+  input: RagQueryInput;
+  answer: string;
+  chunks: ChunkSearchResult[];
+  sources: RagSource[];
+  retrievalLimit: number;
+  chunksPerDocument: number;
+  latency: RagLatency;
+  usage?: RagUsage;
+  finishReason?: string;
+}): RagFullQueryResponse => ({
+  answer: params.answer,
+  chunks: toRagChunks(params.chunks),
+  sources: params.sources,
+  meta: {
+    query: params.input.query,
+    strategy: "fts",
+    requestedLimit: params.input.limit,
+    retrievalLimit: params.retrievalLimit,
+    used: params.chunks.length,
+    chunksPerDocument: params.chunksPerDocument,
+    noResults: params.chunks.length === 0,
+    sourceCount: params.sources.length,
+    latency: params.latency,
+    usage: params.usage,
+    finishReason: params.finishReason,
+  },
+});
+
+export const toPublicRagQueryResponse = (response: RagFullQueryResponse): RagQueryResponse => {
+  const { chunks: _chunks, meta, ...rest } = response;
+
+  return {
+    ...rest,
+    meta: {
+      strategy: meta.strategy,
+      noResults: meta.noResults,
+      sourceCount: meta.sourceCount,
+      latency: meta.latency,
+    },
+  };
+};
+
 // 1. retrieval helper
-// get ranked chunks, raw
-// call search.repo FTS
 const getRankedChunks = async (query: string, limit: number): Promise<ChunkSearchResult[]> => {
   return await searchChunksFullText(query, limit);
 };
 
 // 2. postprocess, diversity helper
-// cap max chunks per document
-// trim to final limit
 const capChunksPerDocument = (
   chunks: ChunkSearchResult[],
   chunksPerDocument = 2,
@@ -84,12 +146,9 @@ const capChunksPerDocument = (
   return results;
 };
 
-// 3. source mapper/builder
-// derive unique source list
-// one source entry per distinct document
-// for client display
-const buildSources = (chunks: ChunkSearchResult[]): RagSourceRecord[] => {
-  const sourceByDocumentId = new Map<string, RagSourceRecord>();
+// 3. source builder
+const buildSources = (chunks: ChunkSearchResult[]): RagSource[] => {
+  const sourceByDocumentId = new Map<string, RagSource>();
 
   for (const chunk of chunks) {
     const existing = sourceByDocumentId.get(chunk.documentId);
@@ -104,7 +163,7 @@ const buildSources = (chunks: ChunkSearchResult[]): RagSourceRecord[] => {
       documentId: chunk.documentId,
       title: chunk.document.title,
       url: chunk.document.url,
-      publishedAt: chunk.document.publishedAt,
+      publishedAt: dateToIsoString(chunk.document.publishedAt),
       chunkIds: [chunk.id],
     });
   }
@@ -113,7 +172,7 @@ const buildSources = (chunks: ChunkSearchResult[]): RagSourceRecord[] => {
 };
 
 // 4. build context
-const buildContext = (chunks: ChunkSearchResult[], sources: RagSourceRecord[]): string => {
+const buildContext = (chunks: ChunkSearchResult[], sources: RagSource[]): string => {
   const citationByDocumentId = new Map(
     sources.map((source) => [source.documentId, source.citation]),
   );
@@ -133,7 +192,6 @@ ${chunk.text}`;
 };
 
 // 5. prompt builder
-// turn query + chunks into model input
 const buildPrompt = (question: string, context: string): string => {
   return `
 Use the following source context to answer the question.
@@ -186,28 +244,30 @@ const buildRagContext = async (
   };
 };
 
-// 7. main orchestrator
+// 7a. generateText, non stream
 export const runRagQuery = async (
   input: RagQueryInput,
   chunksPerDocument = 2,
-): Promise<RagResult> => {
+): Promise<RagFullQueryResponse> => {
   const startedAt = performance.now();
   const context = await buildRagContext(input, chunksPerDocument);
 
   if (!context.selectedChunks.length) {
     void logRagNoResults({ query: context.query, latencyMs: context.retrievalLatencyMs });
-    return {
+
+    return buildFullRagQueryResponse({
+      input,
       answer: NO_ANSWER_TEXT,
-      retrievalLimit: context.retrievalLimit,
-      chunksPerDocument,
       chunks: [],
       sources: [],
+      retrievalLimit: context.retrievalLimit,
+      chunksPerDocument,
       latency: {
         retrievalMs: context.retrievalLatencyMs,
         generationMs: 0,
         totalMs: context.retrievalLatencyMs,
       },
-    };
+    });
   }
 
   const generationStartedAt = performance.now();
@@ -245,12 +305,13 @@ export const runRagQuery = async (
     result,
   });
 
-  return {
+  return buildFullRagQueryResponse({
+    input,
     answer: result.text,
-    retrievalLimit: context.retrievalLimit,
-    chunksPerDocument,
     chunks: context.selectedChunks,
     sources: context.sources,
+    retrievalLimit: context.retrievalLimit,
+    chunksPerDocument,
     latency: {
       retrievalMs: context.retrievalLatencyMs,
       generationMs: generationLatencyMs,
@@ -258,5 +319,75 @@ export const runRagQuery = async (
     },
     usage: toRagUsage(result.usage),
     finishReason: result.finishReason,
-  };
+  });
 };
+
+// 7b. stream
+// export const streamRagQuery = async (
+//   input: RagQueryInput,
+//   chunksPerDocument = 2,
+// ): Promise<{
+//   context: RagQueryContext;
+//   stream: ReturnType<typeof streamText>;
+// }> => {
+//   const startedAt = performance.now();
+//   const stream = createUIMessageStream({
+//     execute: ({ writer }) => {
+//       const context = buildRagContext(input, chunksPerDocument)
+//       writer.write({
+//         type: "data-notification",
+//         data: { message: "Processing your request...", level: "info" },
+//         transient: true, // This part won't be added to message history
+//       });
+//
+//       // 2. Send sources (useful for RAG use cases)
+//       writer.write({
+//         type: "source",
+//         value: {
+//           type: "source",
+//           sourceType: "url",
+//           id: "source-1",
+//           url: "https://weather.com",
+//           title: "Weather Data Source",
+//         },
+//       });
+//
+//       // 3. Send data parts with loading state
+//       writer.write({
+//         type: "data-weather",
+//         id: "weather-1",
+//         data: { city: "San Francisco", status: "loading" },
+//       });
+//
+//       const result = streamText({
+//         model: "anthropic/claude-sonnet-4.5",
+//         messages: await convertToModelMessages(messages),
+//         onFinish() {
+//           // 4. Update the same data part (reconciliation)
+//           writer.write({
+//             type: "data-weather",
+//             id: "weather-1", // Same ID = update existing part
+//             data: {
+//               city: "San Francisco",
+//               weather: "sunny",
+//               status: "success",
+//             },
+//           });
+//
+//           // 5. Send completion notification (transient)
+//           writer.write({
+//             type: "data-notification",
+//             data: { message: "Request completed", level: "info" },
+//             transient: true, // Won't be added to message history
+//           });
+//         },
+//       });
+//
+//       writer.merge(result.toUIMessageStream());
+//     },
+//   });
+//
+//   return createUIMessageStreamResponse({ stream });
+// };
+// const context = await buildRagContext(input, chunksPerDocument);
+// }

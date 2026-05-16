@@ -1,2 +1,2 @@
-export const publishedAtToIso = (value: Date | null): string | null =>
+export const dateToIsoString = (value: Date | null): string | null =>
   value === null ? null : value.toISOString();
