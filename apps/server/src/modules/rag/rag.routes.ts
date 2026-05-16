@@ -1,7 +1,8 @@
 import { ragQuerySchema } from "@osint-rag/schemas";
+import { createUIMessageStreamResponse } from "ai";
 import { Hono } from "hono";
 import { validator } from "@/lib/validator";
-import { runRagQuery, toPublicRagQueryResponse } from "@/modules/rag/rag.service";
+import { runRagQuery, streamRagQuery, toPublicRagQueryResponse } from "@/modules/rag/rag.service";
 
 const ragRoutes = new Hono();
 
@@ -21,6 +22,12 @@ ragRoutes.post("/query/debug", validator("json", ragQuerySchema), async (c) => {
     success: true,
     data: result,
   });
+});
+
+ragRoutes.post("/stream", validator("json", ragQuerySchema), async (c) => {
+  const stream = await streamRagQuery(c.req.valid("json"));
+
+  return createUIMessageStreamResponse({ stream });
 });
 
 export default ragRoutes;

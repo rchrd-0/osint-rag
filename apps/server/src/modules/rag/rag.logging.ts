@@ -1,10 +1,18 @@
 import type { RagSource } from "@osint-rag/types";
-import type { generateText } from "ai";
 import { persistQueryLogSafe } from "@/modules/query-log/query-log.service";
 import type { ChunkSearchResult } from "@/modules/search/search.repository";
 import { MODEL_ID, NO_ANSWER_TEXT } from "./rag.constants";
 
-export type GenerateTextResult = Awaited<ReturnType<typeof generateText>>;
+export type RagGenerationResult = {
+  text: string;
+  usage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    raw?: { cost?: number; [key: string]: unknown };
+  };
+  finishReason?: string;
+};
 
 export const logRagNoResults = (params: { query: string; latencyMs: number }) =>
   persistQueryLogSafe({
@@ -48,7 +56,7 @@ export const logRagSuccess = (params: {
   retrievedChunks: ChunkSearchResult[];
   selectedChunks: ChunkSearchResult[];
   sources: RagSource[];
-  result: GenerateTextResult;
+  result: RagGenerationResult;
 }) => {
   const rawCost = params.result.usage?.raw?.cost;
   const cost = typeof rawCost === "number" ? rawCost : null;

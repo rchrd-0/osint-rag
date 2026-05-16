@@ -5,20 +5,23 @@ import type {
   RagLatency,
   RagQueryResponse,
   RagSource,
+  RagStreamData,
   RagUsage,
 } from "@osint-rag/types";
-import { generateText } from "ai";
+import { createUIMessageStream, generateId, generateText, streamText, type UIMessage } from "ai";
 import { openrouter } from "@/lib/ai/openrouter";
 import { type ChunkSearchResult, searchChunksFullText } from "@/modules/search/search.repository";
 import { dateToIsoString } from "@/utils/format";
 import { MODEL_ID, NO_ANSWER_TEXT } from "./rag.constants";
 import {
-  type GenerateTextResult,
   logRagFailure,
   logRagNoResults,
   logRagSuccess,
+  type RagGenerationResult,
 } from "./rag.logging";
 import type { RagQueryContext } from "./rag.types";
+
+type RagStreamMessage = UIMessage<never, RagStreamData>;
 
 const OVERFETCH_FACTOR = 3;
 const SYSTEM_PROMPT = `You are an OSINT research assistant.
@@ -272,7 +275,7 @@ export const runRagQuery = async (
 
   const generationStartedAt = performance.now();
 
-  let result: GenerateTextResult;
+  let result: RagGenerationResult;
   try {
     result = await generateText({
       model: openrouter.chat(MODEL_ID),
@@ -323,71 +326,123 @@ export const runRagQuery = async (
 };
 
 // 7b. stream
-// export const streamRagQuery = async (
-//   input: RagQueryInput,
-//   chunksPerDocument = 2,
-// ): Promise<{
-//   context: RagQueryContext;
-//   stream: ReturnType<typeof streamText>;
-// }> => {
-//   const startedAt = performance.now();
-//   const stream = createUIMessageStream({
-//     execute: ({ writer }) => {
-//       const context = buildRagContext(input, chunksPerDocument)
-//       writer.write({
-//         type: "data-notification",
-//         data: { message: "Processing your request...", level: "info" },
-//         transient: true, // This part won't be added to message history
-//       });
-//
-//       // 2. Send sources (useful for RAG use cases)
-//       writer.write({
-//         type: "source",
-//         value: {
-//           type: "source",
-//           sourceType: "url",
-//           id: "source-1",
-//           url: "https://weather.com",
-//           title: "Weather Data Source",
-//         },
-//       });
-//
-//       // 3. Send data parts with loading state
-//       writer.write({
-//         type: "data-weather",
-//         id: "weather-1",
-//         data: { city: "San Francisco", status: "loading" },
-//       });
-//
-//       const result = streamText({
-//         model: "anthropic/claude-sonnet-4.5",
-//         messages: await convertToModelMessages(messages),
-//         onFinish() {
-//           // 4. Update the same data part (reconciliation)
-//           writer.write({
-//             type: "data-weather",
-//             id: "weather-1", // Same ID = update existing part
-//             data: {
-//               city: "San Francisco",
-//               weather: "sunny",
-//               status: "success",
-//             },
-//           });
-//
-//           // 5. Send completion notification (transient)
-//           writer.write({
-//             type: "data-notification",
-//             data: { message: "Request completed", level: "info" },
-//             transient: true, // Won't be added to message history
-//           });
-//         },
-//       });
-//
-//       writer.merge(result.toUIMessageStream());
-//     },
-//   });
-//
-//   return createUIMessageStreamResponse({ stream });
-// };
-// const context = await buildRagContext(input, chunksPerDocument);
-// }
+export const streamRagQuery = async (input: RagQueryInput, chunksPerDocument = 2) => {
+  const startedAt = performance.now();
+
+  const stream = createUIMessageStream<RagStreamMessage>({
+    execute: async ({ writer }) => {
+      const context = await buildRagContext(input, chunksPerDocument);
+
+      writer.write({
+        type: "data-sources",
+        data: {
+          sources: context.sources,
+          retrievalMs: context.retrievalLatencyMs,
+        },
+      });
+
+      if (!context.selectedChunks.length) {
+        void logRagNoResults({ query: context.query, latencyMs: context.retrievalLatencyMs });
+
+        const textId = generateId();
+
+        writer.write({ type: "start" });
+        writer.write({ type: "start-step" });
+        writer.write({ type: "text-start", id: textId });
+        writer.write({ type: "text-delta", id: textId, delta: NO_ANSWER_TEXT });
+        writer.write({ type: "text-end", id: textId });
+        writer.write({ type: "finish-step" });
+        writer.write({
+          type: "data-meta",
+          data: {
+            strategy: "fts",
+            requestedLimit: input.limit,
+            used: 0,
+            chunksPerDocument,
+            noResults: true,
+            query: input.query,
+            retrievalLimit: context.retrievalLimit,
+            sourceCount: 0,
+            latency: {
+              retrievalMs: context.retrievalLatencyMs,
+              generationMs: 0,
+              totalMs: context.retrievalLatencyMs,
+            },
+          },
+          transient: true,
+        });
+        writer.write({
+          type: "finish",
+          finishReason: "stop",
+        });
+
+        return;
+      }
+
+      const generationStartedAt = performance.now();
+
+      const result = streamText({
+        model: openrouter.chat(MODEL_ID),
+        system: SYSTEM_PROMPT,
+        prompt: context.prompt,
+        onFinish: ({ text, usage, finishReason }) => {
+          const generationLatencyMs = Math.round(performance.now() - generationStartedAt);
+          const totalLatencyMs = Math.round(performance.now() - startedAt);
+
+          const generationResult: RagGenerationResult = {
+            text,
+            usage,
+            finishReason,
+          };
+
+          writer.write({
+            type: "data-meta",
+            data: {
+              strategy: "fts",
+              requestedLimit: input.limit,
+              used: context.selectedChunks.length,
+              chunksPerDocument: chunksPerDocument,
+              noResults: false,
+              query: input.query,
+              retrievalLimit: context.retrievalLimit,
+              sourceCount: context.sources.length,
+              latency: {
+                generationMs: generationLatencyMs,
+                retrievalMs: context.retrievalLatencyMs,
+                totalMs: totalLatencyMs,
+              },
+              usage: toRagUsage(generationResult.usage),
+              finishReason: generationResult.finishReason,
+            },
+            transient: true,
+          });
+
+          void logRagSuccess({
+            query: context.query,
+            latencyMs: totalLatencyMs,
+            retrievedChunks: context.retrievedChunks,
+            selectedChunks: context.selectedChunks,
+            sources: context.sources,
+            result: generationResult,
+          });
+        },
+        onError: ({ error }) => {
+          const failureLatencyMs = Math.round(performance.now() - startedAt);
+
+          void logRagFailure({
+            query: context.query,
+            latencyMs: failureLatencyMs,
+            retrievedChunks: context.retrievedChunks,
+            selectedChunks: context.selectedChunks,
+            sources: context.sources,
+            error,
+          });
+        },
+      });
+
+      writer.merge(result.toUIMessageStream());
+    },
+  });
+
+  return stream;
+};

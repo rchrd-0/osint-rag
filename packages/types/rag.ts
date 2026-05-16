@@ -65,4 +65,10 @@ export type RagFullQueryResponse = RagQueryResponse & {
   meta: RagFullQueryMeta;
 };
 
-export type RagUIMessage = {};
+export type RagStreamData = {
+  sources: {
+    sources: RagSource[];
+    retrievalMs: number;
+  };
+  meta: RagFullQueryMeta;
+};
