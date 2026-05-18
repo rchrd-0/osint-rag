@@ -32,7 +32,7 @@ function DocumentRoute() {
           <Link to="/" className="text-primary text-sm underline-offset-4 hover:underline">
             Back to documents
           </Link>
-          <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 text-destructive text-sm">
+          <div className="border border-destructive/50 bg-destructive/5 p-4 text-destructive text-sm">
             Failed to load document.
           </div>
         </div>
@@ -47,7 +47,7 @@ function DocumentRoute() {
           <Link to="/" className="text-primary text-sm underline-offset-4 hover:underline">
             Back to documents
           </Link>
-          <div className="rounded-lg border p-6">
+          <div className="border p-6">
             <div className="grid gap-4">
               <div className="grid gap-2">
                 <h1 className="font-semibold text-2xl">{document.title}</h1>
@@ -77,7 +77,7 @@ function DocumentRoute() {
                 </a>
               ) : null}
 
-              <div className="rounded-md border bg-muted/20 p-4">
+              <div className="border bg-muted/20 p-4">
                 <p className="whitespace-pre-wrap text-sm leading-7">{document.rawText}</p>
               </div>
             </div>
@@ -94,7 +94,7 @@ function DocumentDetailSkeleton() {
       <div className="grid gap-6">
         <div className="grid gap-2">
           <Skeleton className="h-4 w-32" />
-          <div className="rounded-lg border p-6">
+          <div className="border p-6">
             <div className="grid gap-4">
               <div className="grid gap-2">
                 <Skeleton className="h-8 w-full max-w-135" />
@@ -107,7 +107,7 @@ function DocumentDetailSkeleton() {
 
               <Skeleton className="h-4 w-40" />
 
-              <div className="rounded-md border bg-muted/20 p-4">
+              <div className="border bg-muted/20 p-4">
                 <div className="grid gap-3">
                   {documentDetailSkeletonLines.map((line) => (
                     <Skeleton key={line.id} className={line.className} />

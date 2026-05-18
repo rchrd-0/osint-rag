@@ -369,7 +369,6 @@ export const streamRagQuery = async (input: RagQueryInput, chunksPerDocument = 2
               totalMs: context.retrievalLatencyMs,
             },
           },
-          transient: true,
         });
         writer.write({
           type: "finish",
@@ -414,7 +413,6 @@ export const streamRagQuery = async (input: RagQueryInput, chunksPerDocument = 2
               usage: toRagUsage(generationResult.usage),
               finishReason: generationResult.finishReason,
             },
-            transient: true,
           });
 
           void logRagSuccess({

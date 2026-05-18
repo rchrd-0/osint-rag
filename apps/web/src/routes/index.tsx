@@ -1,4 +1,14 @@
+import { Button } from "@osint-rag/ui/components/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@osint-rag/ui/components/card";
 import { Skeleton } from "@osint-rag/ui/components/skeleton";
+import { cn } from "@osint-rag/ui/lib/utils";
+import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { DocumentsTable } from "@/components/documents-table";
 import { useGetAllDocuments } from "@/hooks/query/useGetAllDocuments";
@@ -10,42 +20,42 @@ export const Route = createFileRoute("/")({
 });
 
 function HomeComponent() {
-  const { data: documents, error, isLoading } = useGetAllDocuments();
+  const { data: documents, error, isLoading, isFetching, refetch } = useGetAllDocuments();
 
   return (
-    <div className="container mx-auto max-w-5xl px-4 py-6">
-      <div className="grid gap-6">
-        <section className="rounded-lg border p-4">
-          <div className="mb-4 flex items-center justify-between gap-4">
-            <div>
-              <h2 className="font-medium text-lg">Documents</h2>
-              <p className="text-muted-foreground text-sm">
-                Basic document inventory from the ingestion pipeline.
-              </p>
-            </div>
-            <div className="text-muted-foreground text-sm">
-              {documents?.length ?? 0} document{documents?.length === 1 ? "" : "s"}
-            </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Documents</CardTitle>
+        {/* <CardDescription className="flex items-center justify-between gap-4">
+          Basic document inventory from the ingestion pipeline.
+        </CardDescription> */}
+        <CardAction>
+          <Button variant="outline" size="icon" onClick={() => refetch()}>
+            <ArrowCounterClockwiseIcon className={cn(isFetching && "animate-spin")} />
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <div className="text-right text-muted-foreground text-sm">
+          {documents?.length ?? 0} document{documents?.length === 1 ? "" : "s"}
+        </div>
+        {isLoading ? (
+          <DocumentsTableSkeleton />
+        ) : error ? (
+          <div className="border border-destructive/50 bg-destructive/5 p-4 text-destructive text-sm">
+            Failed to load documents.
           </div>
-
-          {isLoading ? (
-            <DocumentsTableSkeleton />
-          ) : error ? (
-            <div className="rounded-md border border-destructive/50 bg-destructive/5 p-4 text-destructive text-sm">
-              Failed to load documents.
-            </div>
-          ) : (
-            <DocumentsTable documents={documents ?? []} />
-          )}
-        </section>
-      </div>
-    </div>
+        ) : (
+          <DocumentsTable documents={documents ?? []} />
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
 function DocumentsTableSkeleton() {
   return (
-    <div className="overflow-hidden rounded-md border">
+    <div className="overflow-hidden">
       <div className="border-b px-4 py-3">
         <Skeleton className="h-4 w-full max-w-55" />
       </div>
