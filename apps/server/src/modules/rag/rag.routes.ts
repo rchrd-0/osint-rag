@@ -1,3 +1,4 @@
+import { env } from "@osint-rag/env/server";
 import { ragQuerySchema } from "@osint-rag/schemas";
 import { createUIMessageStreamResponse } from "ai";
 import { Hono } from "hono";
@@ -15,14 +16,16 @@ ragRoutes.post("/query", validator("json", ragQuerySchema), async (c) => {
   });
 });
 
-ragRoutes.post("/query/debug", validator("json", ragQuerySchema), async (c) => {
-  const result = await runRagQuery(c.req.valid("json"));
+if (env.NODE_ENV !== "production") {
+  ragRoutes.post("/query/debug", validator("json", ragQuerySchema), async (c) => {
+    const result = await runRagQuery(c.req.valid("json"));
 
-  return c.json({
-    success: true,
-    data: result,
+    return c.json({
+      success: true,
+      data: result,
+    });
   });
-});
+}
 
 ragRoutes.post("/stream", validator("json", ragQuerySchema), async (c) => {
   const stream = await streamRagQuery(c.req.valid("json"));

@@ -33,7 +33,10 @@ export function RagSources({ sources, retrievalMs, className }: RagSourcesProps)
           const publishedLabel = formatPublishedAt(source.publishedAt);
 
           return (
-            <li key={source.documentId} className="border bg-muted/20 px-4 py-3 text-sm leading-relaxed">
+            <li
+              key={source.documentId}
+              className="border bg-muted/20 px-4 py-3 text-sm leading-relaxed"
+            >
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <span className="font-medium text-muted-foreground">[{source.citation}]</span>
                 {source.url ? (
