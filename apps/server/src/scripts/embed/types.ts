@@ -1,4 +1,4 @@
-export const EMBED_BATCH_SIZE = 100;
+export const EMBED_BATCH_SIZE = 500;
 
 export type EmbeddableChunk = {
   id: string;

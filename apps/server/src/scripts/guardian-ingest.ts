@@ -42,11 +42,22 @@ type GuardianSearchOptions = {
   query: string;
   pageSize: number;
   fromDate?: string;
+  maxPages: number;
+};
+
+type GuardianSearchPageResult = {
+  results: GuardianArticle[];
+  currentPage: number;
+  totalPages: number;
+  total: number;
 };
 
 const GUARDIAN_API_BASE_URL = "https://content.guardianapis.com";
 const DEFAULT_SEARCH_QUERY = "ai OR economy OR hong kong OR film OR cinema";
-const DEFAULT_PAGE_SIZE = 100;
+const DEFAULT_PAGE_SIZE = 200;
+const DEFAULT_MAX_PAGES = 2;
+const GUARDIAN_MAX_PAGE_SIZE = 200;
+const GUARDIAN_MAX_PAGES = 200;
 
 const getUrlBase = (targetUrl: string = GUARDIAN_API_BASE_URL) => {
   const url = new URL(targetUrl);
@@ -59,6 +70,7 @@ const parseGuardianCliOptions = (): GuardianSearchOptions => {
   const options: GuardianSearchOptions = {
     query: DEFAULT_SEARCH_QUERY,
     pageSize: DEFAULT_PAGE_SIZE,
+    maxPages: DEFAULT_MAX_PAGES,
   };
 
   const args = process.argv.slice(2);
@@ -75,9 +87,10 @@ const parseGuardianCliOptions = (): GuardianSearchOptions => {
 Usage: bun run src/scripts/guardian-ingest.ts [options]
 
 Options:
-  --query, -q       Guardian search query
-  --page-size, -p   Number of results to fetch for the first page
-  --from-date       Optional from-date filter (YYYY-MM-DD)
+  --query, -q         Guardian search query
+  --page-size, -p     Results per page (max ${GUARDIAN_MAX_PAGE_SIZE})
+  --max-pages, -m     Pages to fetch (max ${GUARDIAN_MAX_PAGES}, default ${DEFAULT_MAX_PAGES})
+  --from-date         Optional from-date filter (YYYY-MM-DD)
 `);
       process.exit(0);
     }
@@ -108,22 +121,48 @@ Options:
       continue;
     }
 
+    if ((arg === "--max-pages" || arg === "-m") && nextValue) {
+      const parsedMaxPages = Number(nextValue);
+
+      if (!Number.isInteger(parsedMaxPages) || parsedMaxPages <= 0) {
+        throw new Error(`Invalid max pages: ${nextValue}`);
+      }
+
+      options.maxPages = parsedMaxPages;
+      index += 1;
+      continue;
+    }
+
     throw new Error(`Unknown or incomplete argument: ${arg}`);
   }
 
   return options;
 };
 
-export const searchGuardianArticles = async ({
+const clampGuardianSearchOptions = ({
+  pageSize,
+  maxPages,
+  ...rest
+}: GuardianSearchOptions): GuardianSearchOptions => ({
+  ...rest,
+  pageSize: Math.min(pageSize, GUARDIAN_MAX_PAGE_SIZE),
+  maxPages: Math.min(maxPages, GUARDIAN_MAX_PAGES),
+});
+
+export const searchGuardianArticlesPage = async ({
   query,
   pageSize,
   fromDate,
-}: GuardianSearchOptions) => {
+  page,
+}: Omit<GuardianSearchOptions, "maxPages"> & {
+  page: number;
+}): Promise<GuardianSearchPageResult> => {
   const url = getUrlBase();
   url.pathname = "/search";
   url.searchParams.set("q", query);
   url.searchParams.set("show-fields", "byline,bodyText");
   url.searchParams.set("page-size", String(pageSize));
+  url.searchParams.set("page", String(page));
   if (fromDate) {
     url.searchParams.set("from-date", fromDate);
   }
@@ -138,12 +177,45 @@ export const searchGuardianArticles = async ({
   }
 
   const data = (await response.json()) as GuardianApiResponse<{ results?: GuardianArticle[] }>;
-  const results = data?.response?.results;
+  const responseMeta = data?.response;
+  const results = responseMeta?.results;
   if (!results) {
     throw new Error("Invalid Guardian API response: missing response.results");
   }
 
-  return results;
+  const currentPage = responseMeta.currentPage ?? page;
+  const totalPages = responseMeta.pages ?? currentPage;
+  const total = responseMeta.total ?? results.length;
+
+  return {
+    results,
+    currentPage,
+    totalPages,
+    total,
+  };
+};
+
+export const searchGuardianArticles = async (
+  options: GuardianSearchOptions,
+): Promise<GuardianArticle[]> => {
+  const { maxPages, pageSize, ...searchOptions } = clampGuardianSearchOptions(options);
+  const articles: GuardianArticle[] = [];
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const pageResult = await searchGuardianArticlesPage({
+      ...searchOptions,
+      pageSize,
+      page,
+    });
+
+    articles.push(...pageResult.results);
+
+    if (pageResult.currentPage >= pageResult.totalPages) {
+      break;
+    }
+  }
+
+  return articles;
 };
 
 // single item fetch
@@ -217,53 +289,82 @@ export const insertGuardianDocument = async (data: GuardianDocumentInsert) => {
 };
 
 export const runGuardianIngest = async (options: GuardianSearchOptions): Promise<void> => {
-  const articles = await searchGuardianArticles(options);
+  const { maxPages, pageSize, ...searchOptions } = clampGuardianSearchOptions(options);
 
-  const found = articles.length;
   console.log(
-    `Guardian ingest config\n\nQuery: ${options.query}\nPage size: ${options.pageSize}\nFrom date: ${options.fromDate ?? "-"}\n`,
+    `Guardian ingest config\n\nQuery: ${searchOptions.query}\nPage size: ${pageSize}\nMax pages: ${maxPages}\nFrom date: ${searchOptions.fromDate ?? "-"}\n`,
   );
-  console.log(`Found ${found} articles from The Guardian\n`);
 
+  let found = 0;
   let invalid = 0;
   let duplicates = 0;
   let inserted = 0;
   let failed = 0;
+  let totalAvailable = 0;
+  let totalPagesAvailable = 0;
 
-  for (const article of articles) {
-    const mapped = mapGuardianDocument(article);
-    if (!mapped) {
-      console.warn(`Skipping article with ID ${article.id} due to missing required fields.`);
+  for (let page = 1; page <= maxPages; page += 1) {
+    const pageResult = await searchGuardianArticlesPage({
+      ...searchOptions,
+      pageSize,
+      page,
+    });
 
-      invalid += 1;
-      continue;
+    if (page === 1) {
+      totalAvailable = pageResult.total;
+      totalPagesAvailable = pageResult.totalPages;
+      const pagesToFetch = Math.min(maxPages, totalPagesAvailable);
+
+      console.log(
+        `Found ${totalAvailable} articles across ${totalPagesAvailable} pages (fetching up to ${pagesToFetch})\n`,
+      );
     }
 
-    try {
-      const exists = await documentExists(mapped.sourceType, mapped.externalId);
-      if (exists) {
-        duplicates += 1;
+    const pageLabel = `${pageResult.currentPage}/${Math.min(maxPages, totalPagesAvailable)}`;
+    console.log(`Page ${pageLabel}: processing ${pageResult.results.length} articles`);
+
+    found += pageResult.results.length;
+
+    for (const article of pageResult.results) {
+      const mapped = mapGuardianDocument(article);
+      if (!mapped) {
+        console.warn(`Skipping article with ID ${article.id} due to missing required fields.`);
+
+        invalid += 1;
         continue;
       }
 
-      const newDocument = await insertGuardianDocument(mapped);
+      try {
+        const exists = await documentExists(mapped.sourceType, mapped.externalId);
+        if (exists) {
+          duplicates += 1;
+          continue;
+        }
 
-      if (!newDocument) {
-        duplicates += 1;
-      } else {
-        inserted += 1;
+        const newDocument = await insertGuardianDocument(mapped);
+
+        if (!newDocument) {
+          duplicates += 1;
+        } else {
+          inserted += 1;
+        }
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+
+        console.error(`${article.id}: failed - `, errorMessage);
+        failed += 1;
       }
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+    }
 
-      console.error(`${article.id}: failed - `, errorMessage);
-      failed += 1;
+    if (pageResult.currentPage >= pageResult.totalPages) {
+      break;
     }
   }
 
   console.log(
     `Guardian ingest done
 
+Fetched:    ${found}
 Inserted:   ${inserted}
 Duplicates: ${duplicates}
 Invalid:    ${invalid}
