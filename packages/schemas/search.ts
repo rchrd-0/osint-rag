@@ -8,7 +8,7 @@ export type QueryStrategy = z.infer<typeof QueryStrategyEnum>;
 
 export const searchQuerySchema = z.object({
   q: queryTextSchema,
-  strategy: QueryStrategyEnum.default("fts"),
+  strategy: QueryStrategyEnum.default("vector"),
   limit: z.coerce
     .number()
     .int()

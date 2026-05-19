@@ -1,4 +1,4 @@
-import type { RagQueryInput } from "@osint-rag/schemas";
+import { QueryStrategyEnum, type RagQueryInput } from "@osint-rag/schemas";
 import type {
   RagChunk,
   RagFullQueryResponse,
@@ -10,7 +10,12 @@ import type {
 } from "@osint-rag/types";
 import { createUIMessageStream, generateId, generateText, streamText, type UIMessage } from "ai";
 import { openrouter } from "@/lib/ai/openrouter";
-import { type ChunkSearchResult, searchChunksFullText } from "@/modules/search/search.repository";
+import {
+  type ChunkSearchResult,
+  searchChunksContains,
+  searchChunksFullText,
+  searchChunksVector,
+} from "@/modules/search/search.repository";
 import { dateToIsoString } from "@/utils/format";
 import { RAG_MODEL_ID, RAG_NO_ANSWER_TEXT } from "./rag.constants";
 import {
@@ -95,7 +100,7 @@ const buildFullRagQueryResponse = (params: {
   sources: params.sources,
   meta: {
     query: params.input.query,
-    strategy: "fts",
+    strategy: params.input.strategy,
     requestedLimit: params.input.limit,
     retrievalLimit: params.retrievalLimit,
     used: params.chunks.length,
@@ -123,8 +128,19 @@ export const toPublicRagQueryResponse = (response: RagFullQueryResponse): RagQue
 };
 
 // 1. retrieval helper
-const getRankedChunks = async (query: string, limit: number): Promise<ChunkSearchResult[]> => {
-  return await searchChunksFullText(query, limit);
+const getRankedChunks = async ({
+  query,
+  limit,
+  strategy,
+}: RagQueryInput): Promise<ChunkSearchResult[]> => {
+  switch (strategy) {
+    case QueryStrategyEnum.enum.naive:
+      return await searchChunksContains(query, limit);
+    case QueryStrategyEnum.enum.fts:
+      return await searchChunksFullText(query, limit);
+    case QueryStrategyEnum.enum.vector:
+      return await searchChunksVector(query, limit);
+  }
 };
 
 // 2. postprocess, diversity helper
@@ -219,11 +235,11 @@ const buildRagContext = async (
   input: RagQueryInput,
   chunksPerDocument = 2,
 ): Promise<RagQueryContext> => {
-  const { query, limit } = input;
+  const { query, limit, strategy } = input;
   const retrievalLimit = limit * OVERFETCH_FACTOR;
   const startedAt = performance.now();
 
-  const retrievedChunks = await getRankedChunks(query, retrievalLimit);
+  const retrievedChunks = await getRankedChunks({ query, limit: retrievalLimit, strategy });
   const retrievalLatencyMs = Math.round(performance.now() - startedAt);
 
   // @TODO: v2, round robin to minimise rank greed
@@ -256,7 +272,11 @@ export const runRagQuery = async (
   const context = await buildRagContext(input, chunksPerDocument);
 
   if (!context.selectedChunks.length) {
-    void logRagNoResults({ query: context.query, latencyMs: context.retrievalLatencyMs });
+    void logRagNoResults({
+      query: context.query,
+      latencyMs: context.retrievalLatencyMs,
+      strategy: input.strategy,
+    });
 
     return buildFullRagQueryResponse({
       input,
@@ -287,6 +307,7 @@ export const runRagQuery = async (
 
     void logRagFailure({
       query: context.query,
+      strategy: input.strategy,
       latencyMs: failureLatencyMs,
       retrievedChunks: context.retrievedChunks,
       selectedChunks: context.selectedChunks,
@@ -301,6 +322,7 @@ export const runRagQuery = async (
 
   void logRagSuccess({
     query: context.query,
+    strategy: input.strategy,
     latencyMs: totalLatencyMs,
     retrievedChunks: context.retrievedChunks,
     selectedChunks: context.selectedChunks,
@@ -342,7 +364,11 @@ export const streamRagQuery = async (input: RagQueryInput, chunksPerDocument = 2
       });
 
       if (!context.selectedChunks.length) {
-        void logRagNoResults({ query: context.query, latencyMs: context.retrievalLatencyMs });
+        void logRagNoResults({
+          query: context.query,
+          latencyMs: context.retrievalLatencyMs,
+          strategy: input.strategy,
+        });
 
         const textId = generateId();
 
@@ -355,7 +381,7 @@ export const streamRagQuery = async (input: RagQueryInput, chunksPerDocument = 2
         writer.write({
           type: "data-meta",
           data: {
-            strategy: "fts",
+            strategy: input.strategy,
             requestedLimit: input.limit,
             used: 0,
             chunksPerDocument,
@@ -397,7 +423,7 @@ export const streamRagQuery = async (input: RagQueryInput, chunksPerDocument = 2
           writer.write({
             type: "data-meta",
             data: {
-              strategy: "fts",
+              strategy: input.strategy,
               requestedLimit: input.limit,
               used: context.selectedChunks.length,
               chunksPerDocument: chunksPerDocument,
@@ -417,6 +443,7 @@ export const streamRagQuery = async (input: RagQueryInput, chunksPerDocument = 2
 
           void logRagSuccess({
             query: context.query,
+            strategy: input.strategy,
             latencyMs: totalLatencyMs,
             retrievedChunks: context.retrievedChunks,
             selectedChunks: context.selectedChunks,
@@ -429,6 +456,7 @@ export const streamRagQuery = async (input: RagQueryInput, chunksPerDocument = 2
 
           void logRagFailure({
             query: context.query,
+            strategy: input.strategy,
             latencyMs: failureLatencyMs,
             retrievedChunks: context.retrievedChunks,
             selectedChunks: context.selectedChunks,

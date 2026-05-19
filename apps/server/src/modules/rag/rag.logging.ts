@@ -1,3 +1,4 @@
+import type { QueryStrategy } from "@osint-rag/schemas";
 import type { RagSource } from "@osint-rag/types";
 import { persistQueryLogSafe } from "@/modules/query-log/query-log.service";
 import type { ChunkSearchResult } from "@/modules/search/search.repository";
@@ -14,10 +15,14 @@ export type RagGenerationResult = {
   finishReason?: string;
 };
 
-export const logRagNoResults = (params: { query: string; latencyMs: number }) =>
+export const logRagNoResults = (params: {
+  query: string;
+  latencyMs: number;
+  strategy: QueryStrategy;
+}) =>
   persistQueryLogSafe({
     queryText: params.query,
-    strategy: "fts",
+    strategy: params.strategy,
     model: RAG_MODEL_ID,
     latencyMs: params.latencyMs,
     chunksRetrieved: 0,
@@ -31,6 +36,7 @@ export const logRagNoResults = (params: { query: string; latencyMs: number }) =>
 export const logRagFailure = (params: {
   query: string;
   latencyMs: number;
+  strategy: QueryStrategy;
   retrievedChunks: ChunkSearchResult[];
   selectedChunks: ChunkSearchResult[];
   sources: RagSource[];
@@ -38,7 +44,7 @@ export const logRagFailure = (params: {
 }) =>
   persistQueryLogSafe({
     queryText: params.query,
-    strategy: "fts",
+    strategy: params.strategy,
     model: RAG_MODEL_ID,
     latencyMs: params.latencyMs,
     chunksRetrieved: params.retrievedChunks.length,
@@ -53,6 +59,7 @@ export const logRagFailure = (params: {
 export const logRagSuccess = (params: {
   query: string;
   latencyMs: number;
+  strategy: QueryStrategy;
   retrievedChunks: ChunkSearchResult[];
   selectedChunks: ChunkSearchResult[];
   sources: RagSource[];
@@ -63,7 +70,7 @@ export const logRagSuccess = (params: {
 
   return persistQueryLogSafe({
     queryText: params.query,
-    strategy: "fts",
+    strategy: params.strategy,
     model: RAG_MODEL_ID,
     latencyMs: params.latencyMs,
     chunksRetrieved: params.retrievedChunks.length,
