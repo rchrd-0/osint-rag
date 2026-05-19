@@ -1,4 +1,4 @@
-export const EMBED_BATCH_SIZE = 50;
+export const EMBED_BATCH_SIZE = 100;
 
 export type EmbeddableChunk = {
   id: string;
@@ -25,6 +25,8 @@ export type BatchEmbedStats = {
   embedded: number;
   skipped: number;
   failed: number;
+  tokens: number;
+  cost: number | null;
 };
 
 export type PersistChunkEmbeddingParams = {

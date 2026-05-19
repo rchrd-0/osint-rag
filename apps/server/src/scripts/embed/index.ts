@@ -14,6 +14,7 @@ import {
   type EmbedRunOptions,
   type PersistChunkEmbeddingParams,
 } from "@/scripts/embed/types";
+import { formatTokenCount, formatTokensAndCost, formatUsdAmountOrUnknown } from "@/utils/format";
 
 const toPgVectorLiteral = (vector: number[]): string => {
   assertEmbeddingLength(vector);
@@ -69,14 +70,16 @@ export const persistChunkEmbedding = async (
 };
 
 export const embedAndPersistBatch = async (batch: EmbeddableChunk[]): Promise<BatchEmbedStats> => {
-  const stats: BatchEmbedStats = { embedded: 0, skipped: 0, failed: 0 };
+  const stats: BatchEmbedStats = { embedded: 0, skipped: 0, failed: 0, tokens: 0, cost: null };
 
   if (!batch.length) {
     return stats;
   }
 
   const texts = batch.map((chunk) => chunk.text);
-  const vectors = await embedTexts(texts);
+  const { embeddings: vectors, tokens, cost } = await embedTexts(texts);
+  stats.tokens = tokens;
+  stats.cost = cost;
 
   for (const [i, chunk] of batch.entries()) {
     const embedding = vectors[i];
@@ -136,6 +139,9 @@ export const runBatchEmbedChunks = async (options: EmbedRunOptions = {}): Promis
   let totalEmbedded = 0;
   let totalFailed = 0;
   let totalSkipped = 0;
+  let totalTokens = 0;
+  let totalCost = 0;
+  let hasKnownCost = false;
   let batchNum = 0;
   let chunksAttemptedThisRun = 0;
   let stoppedByCap = false;
@@ -166,6 +172,8 @@ export const runBatchEmbedChunks = async (options: EmbedRunOptions = {}): Promis
     let batchEmbedded = 0;
     let batchFailed = 0;
     let batchSkipped = 0;
+    let batchTokens = 0;
+    let batchCost: number | null = null;
 
     console.log(`Batch ${batchNum}: processing ${batch.length} chunks`);
 
@@ -174,21 +182,34 @@ export const runBatchEmbedChunks = async (options: EmbedRunOptions = {}): Promis
       batchEmbedded = stats.embedded;
       batchSkipped = stats.skipped;
       batchFailed = stats.failed;
+      batchTokens = stats.tokens;
+      batchCost = stats.cost;
       totalEmbedded += stats.embedded;
       totalSkipped += stats.skipped;
       totalFailed += stats.failed;
+      totalTokens += stats.tokens;
+      if (stats.cost !== null) {
+        totalCost += stats.cost;
+        hasKnownCost = true;
+      }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`Batch ${batchNum}: embed API failed -`, errorMessage);
+      console.error(
+        `Batch ${batchNum}: embed API failed -`,
+        errorMessage,
+        `(chunk ids: ${batch.map((chunk) => chunk.id).join(", ")})`,
+      );
       batchFailed = batch.length;
       totalFailed += batch.length;
     }
 
+    const batchCostLine = formatTokensAndCost({ cost: batchCost, tokens: batchTokens });
+
     console.log(
-      `Batch ${batchNum} done: ${batchEmbedded} embedded, ${batchSkipped} skipped, ${batchFailed} failed`,
+      `Batch ${batchNum} done: ${batchEmbedded} embedded, ${batchSkipped} skipped, ${batchFailed} failed (${batchCostLine})`,
     );
     console.log(
-      `Running totals: ${totalEmbedded} embedded, ${totalSkipped} skipped, ${totalFailed} failed`,
+      `Running totals: ${totalEmbedded} embedded, ${totalSkipped} skipped, ${totalFailed} failed (${formatTokensAndCost({ cost: hasKnownCost ? totalCost : null, tokens: totalTokens })})`,
     );
 
     if (batchEmbedded === 0) {
@@ -201,11 +222,16 @@ export const runBatchEmbedChunks = async (options: EmbedRunOptions = {}): Promis
 
   const remaining = await countUnembeddedChunks();
 
+  const totalCostLine = formatUsdAmountOrUnknown(hasKnownCost ? totalCost : null);
+  const totalTokensLine = formatTokenCount(totalTokens);
+
   console.log(`
 Batches processed: ${batchNum}
 Total embedded:    ${totalEmbedded}
 Total skipped:     ${totalSkipped}
 Total failed:      ${totalFailed}
+Total tokens:      ${totalTokensLine}
+Total cost:        ${totalCostLine}
 Remaining:         ${remaining}
 `);
 
