@@ -1,5 +1,6 @@
 import prisma from "@osint-rag/db";
-import { assertEmbeddingLength, EMBEDDING_MODEL_ID, embedTexts } from "@/lib/ai/embeddings";
+import { EMBEDDING_MODEL_ID, embedTexts } from "@/lib/ai/embeddings";
+import { toPgVectorLiteral } from "@/lib/pgvector";
 import {
   confirmEmbedRun,
   logEmbedPreflight,
@@ -15,12 +16,6 @@ import {
   type PersistChunkEmbeddingParams,
 } from "@/scripts/embed/types";
 import { formatTokenCount, formatTokensAndCost, formatUsdAmountOrUnknown } from "@/utils/format";
-
-const toPgVectorLiteral = (vector: number[]): string => {
-  assertEmbeddingLength(vector);
-
-  return `[${vector.join(",")}]`;
-};
 
 export const countUnembeddedChunks = async (): Promise<number> => {
   const result = await prisma.$queryRaw<[{ count: bigint }]>`
