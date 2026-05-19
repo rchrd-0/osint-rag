@@ -1,13 +1,14 @@
 import { useChat } from "@ai-sdk/react";
 import { env } from "@osint-rag/env/web";
 import { Button } from "@osint-rag/ui/components/button";
-import { Card, CardContent } from "@osint-rag/ui/components/card";
+import { Card, CardContent, CardFooter } from "@osint-rag/ui/components/card";
 import { Input } from "@osint-rag/ui/components/input";
 import { cn } from "@osint-rag/ui/lib/utils";
 import { PaperPlaneRightIcon, StopIcon } from "@phosphor-icons/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { type SubmitEventHandler, useState } from "react";
 import { RagChatMessages } from "@/components/rag-chat-messages";
+import { type RagRetrievalStrategy, RagStrategySelector } from "@/components/rag-strategy-selector";
 import { createRagChatTransport, type RagChatMessage } from "@/lib/rag-chat";
 
 export const Route = createFileRoute("/ask")({
@@ -18,6 +19,7 @@ const RETRIEVAL_LIMIT = 5;
 
 function RouteComponent() {
   const [input, setInput] = useState("");
+  const [strategy, setStrategy] = useState<RagRetrievalStrategy>("vector");
 
   const { sendMessage, messages, status, error, stop } = useChat<RagChatMessage>({
     transport: createRagChatTransport(`${env.VITE_SERVER_URL}/rag/stream`),
@@ -37,6 +39,7 @@ function RouteComponent() {
       {
         body: {
           limit: RETRIEVAL_LIMIT,
+          strategy,
         },
       },
     );
@@ -44,25 +47,23 @@ function RouteComponent() {
   };
 
   return (
-    <Card className="flex min-h-[70vh] flex-col">
-      {/* <CardHeader>
-        <CardTitle>Ask</CardTitle>
-        <CardDescription>
-          Ask a question grounded in the ingested document collection
-        </CardDescription>
-      </CardHeader> */}
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-6">
-        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+    <Card className="flex h-full min-h-0 flex-col gap-0 py-0">
+      <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden py-4 pr-1 pl-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable]">
+          {/* <div className="pr-2"> */}
           <RagChatMessages messages={messages} isStreaming={status === "streaming"} />
+          {/* </div> */}
         </div>
+      </CardContent>
 
+      <CardFooter className="mt-auto shrink-0 flex-col items-stretch gap-4 bg-card">
         {error ? (
           <div className="border border-destructive/50 bg-destructive/5 p-4 text-destructive text-sm">
             {error.message || "Something went wrong while generating an answer."}
           </div>
         ) : null}
 
-        <form onSubmit={handleSubmit} className="flex items-center gap-2">
+        <form onSubmit={handleSubmit} className="flex w-full items-center gap-2">
           <Input
             value={input}
             onChange={(event) => setInput(event.target.value)}
@@ -84,6 +85,15 @@ function RouteComponent() {
           )}
         </form>
 
+        <div className="flex flex-wrap items-center gap-3">
+          <RagStrategySelector value={strategy} onChange={setStrategy} disabled={isBusy} />
+          <span className="text-muted-foreground text-xs">
+            {strategy === "vector"
+              ? "Matches meaning and paraphrases."
+              : "Matches keywords in chunk text."}
+          </span>
+        </div>
+
         <p
           className={cn(
             "text-muted-foreground text-xs",
@@ -96,7 +106,7 @@ function RouteComponent() {
               ? "Generating answer..."
               : "Answers cite retrieved sources and stay within the provided context."}
         </p>
-      </CardContent>
+      </CardFooter>
     </Card>
   );
 }

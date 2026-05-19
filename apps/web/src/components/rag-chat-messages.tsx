@@ -23,7 +23,7 @@ export function RagChatMessages({ messages, isStreaming }: RagChatMessagesProps)
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 pr-4">
       {messages.map((message, index) => {
         const isLastMessage = index === messages.length - 1;
         const showAssistantPending =
@@ -44,7 +44,7 @@ export function RagChatMessages({ messages, isStreaming }: RagChatMessagesProps)
         const generationMs = getMessageGenerationMs(message);
 
         return (
-          <article key={message.id} className="space-y-4">
+          <article key={message.id} className="space-y-5">
             <RagSources sources={sources} retrievalMs={getMessageRetrievalMs(message)} />
             {answer ? (
               <div className="space-y-2">
@@ -53,7 +53,7 @@ export function RagChatMessages({ messages, isStreaming }: RagChatMessagesProps)
                     <span>Generated in {generationMs}ms</span>
                   </div>
                 ) : null}
-                <div className="whitespace-pre-wrap border bg-background px-4 py-3 text-sm leading-relaxed">
+                <div className="whitespace-pre-wrap border bg-background px-4 py-3 text-sm">
                   {answer}
                 </div>
               </div>
@@ -69,7 +69,7 @@ export function RagChatMessages({ messages, isStreaming }: RagChatMessagesProps)
 
 function AssistantAnswerSkeleton() {
   return (
-    <div className="space-y-2 rounded-md border px-4 py-3">
+    <div className="space-y-2 border px-4 py-4">
       <Skeleton className="h-4 w-full max-w-[520px]" />
       <Skeleton className="h-4 w-full max-w-[460px]" />
       <Skeleton className="h-4 w-full max-w-[380px]" />

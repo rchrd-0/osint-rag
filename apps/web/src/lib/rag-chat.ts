@@ -1,9 +1,14 @@
+import type { QueryStrategy } from "@osint-rag/schemas";
 import type { RagSource, RagStreamData } from "@osint-rag/types";
 import { DefaultChatTransport, type UIMessage } from "ai";
 
 export type RagChatMessage = UIMessage<never, RagStreamData>;
 
 const DEFAULT_LIMIT = 5;
+const DEFAULT_STRATEGY: QueryStrategy = "vector";
+
+const isQueryStrategy = (value: unknown): value is QueryStrategy =>
+  value === "naive" || value === "fts" || value === "vector";
 
 const getLatestUserQuery = (messages: UIMessage[]): string => {
   const lastUserMessage = [...messages].reverse().find((message) => message.role === "user");
@@ -25,6 +30,7 @@ export const createRagChatTransport = (api: string) =>
       body: {
         query: getLatestUserQuery(messages),
         limit: typeof body?.limit === "number" ? body.limit : DEFAULT_LIMIT,
+        strategy: isQueryStrategy(body?.strategy) ? body.strategy : DEFAULT_STRATEGY,
       },
     }),
   });

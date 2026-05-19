@@ -28,12 +28,12 @@ export function RagSources({ sources, retrievalMs, className }: RagSourcesProps)
         <span className="font-medium text-foreground">Sources</span>
         {retrievalMs != null ? <span>Retrieved in {retrievalMs}ms</span> : null}
       </div>
-      <ol className="space-y-2">
+      <ol className="space-y-3">
         {sources.map((source) => {
           const publishedLabel = formatPublishedAt(source.publishedAt);
 
           return (
-            <li key={source.documentId} className="border bg-muted/20 px-3 py-2 text-sm">
+            <li key={source.documentId} className="border bg-muted/20 px-4 py-3 text-sm leading-relaxed">
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <span className="font-medium text-muted-foreground">[{source.citation}]</span>
                 {source.url ? (

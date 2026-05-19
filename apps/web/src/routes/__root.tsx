@@ -42,7 +42,7 @@ function RootComponent() {
       >
         <div className="grid h-svh grid-rows-[auto_1fr]">
           <Header />
-          <main className="container mx-auto min-h-screen w-full max-w-7xl px-4 py-8">
+          <main className="container mx-auto min-h-0 w-full max-w-7xl flex-1 overflow-y-auto px-4 py-8">
             <Outlet />
           </main>
         </div>
