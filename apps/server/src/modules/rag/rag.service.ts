@@ -12,7 +12,7 @@ import { createUIMessageStream, generateId, generateText, streamText, type UIMes
 import { openrouter } from "@/lib/ai/openrouter";
 import { type ChunkSearchResult, searchChunksFullText } from "@/modules/search/search.repository";
 import { dateToIsoString } from "@/utils/format";
-import { MODEL_ID, NO_ANSWER_TEXT } from "./rag.constants";
+import { RAG_MODEL_ID, RAG_NO_ANSWER_TEXT } from "./rag.constants";
 import {
   logRagFailure,
   logRagNoResults,
@@ -260,7 +260,7 @@ export const runRagQuery = async (
 
     return buildFullRagQueryResponse({
       input,
-      answer: NO_ANSWER_TEXT,
+      answer: RAG_NO_ANSWER_TEXT,
       chunks: [],
       sources: [],
       retrievalLimit: context.retrievalLimit,
@@ -278,7 +278,7 @@ export const runRagQuery = async (
   let result: RagGenerationResult;
   try {
     result = await generateText({
-      model: openrouter.chat(MODEL_ID),
+      model: openrouter.chat(RAG_MODEL_ID),
       system: SYSTEM_PROMPT,
       prompt: context.prompt,
     });
@@ -349,7 +349,7 @@ export const streamRagQuery = async (input: RagQueryInput, chunksPerDocument = 2
         writer.write({ type: "start" });
         writer.write({ type: "start-step" });
         writer.write({ type: "text-start", id: textId });
-        writer.write({ type: "text-delta", id: textId, delta: NO_ANSWER_TEXT });
+        writer.write({ type: "text-delta", id: textId, delta: RAG_NO_ANSWER_TEXT });
         writer.write({ type: "text-end", id: textId });
         writer.write({ type: "finish-step" });
         writer.write({
@@ -381,7 +381,7 @@ export const streamRagQuery = async (input: RagQueryInput, chunksPerDocument = 2
       const generationStartedAt = performance.now();
 
       const result = streamText({
-        model: openrouter.chat(MODEL_ID),
+        model: openrouter.chat(RAG_MODEL_ID),
         system: SYSTEM_PROMPT,
         prompt: context.prompt,
         onFinish: ({ text, usage, finishReason }) => {
