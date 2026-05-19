@@ -33,9 +33,10 @@
     "db:down": "bun run --filter @osint-rag/db db:down",
     "db:seed": "bun run --filter @osint-rag/db db:seed",
     "db:reset": "bun run --cwd packages/db db:reset",
-    "docs:chunk": "bun run --elide-lines=0 --filter server docs:chunk",
-    "docs:embed": "bun run --elide-lines=0 --filter server docs:embed",
-    "ingest:guardian": "bun run --elide-lines=0 --filter server ingest:guardian",
+    "docs:chunk": "bun run --cwd apps/server docs:chunk",
+    "docs:embed": "bun run --cwd apps/server docs:embed",
+    "docs:embed:dry": "bun run --cwd apps/server docs:embed:dry",
+    "ingest:guardian": "bun run --cwd apps/server ingest:guardian",
     "check": "biome check  .",
     "check:fix": "biome check --write ."
   },

@@ -1,12 +1,19 @@
 import prisma from "@osint-rag/db";
 import { assertEmbeddingLength, EMBEDDING_MODEL_ID, embedTexts } from "@/lib/ai/embeddings";
-
-const BATCH_SIZE = 50;
-
-type EmbeddableChunk = {
-  id: string;
-  text: string;
-};
+import {
+  confirmEmbedRun,
+  logEmbedPreflight,
+  parseEmbedCliArgs,
+  readEmbedRunLimits,
+  resolveEmbedBatchLimit,
+} from "@/scripts/embed/cli";
+import {
+  type BatchEmbedStats,
+  EMBED_BATCH_SIZE,
+  type EmbeddableChunk,
+  type EmbedRunOptions,
+  type PersistChunkEmbeddingParams,
+} from "@/scripts/embed/types";
 
 const toPgVectorLiteral = (vector: number[]): string => {
   assertEmbeddingLength(vector);
@@ -14,7 +21,23 @@ const toPgVectorLiteral = (vector: number[]): string => {
   return `[${vector.join(",")}]`;
 };
 
-export const findUnembeddedChunks = async (limit = BATCH_SIZE): Promise<EmbeddableChunk[]> => {
+export const countUnembeddedChunks = async (): Promise<number> => {
+  const result = await prisma.$queryRaw<[{ count: bigint }]>`
+    SELECT count(*)::bigint AS count
+    FROM chunks
+    WHERE (
+      embedding IS NULL
+      OR embedding_model IS DISTINCT FROM ${EMBEDDING_MODEL_ID}
+    )
+      AND length(trim(text)) > 0
+  `;
+
+  return Number(result[0]?.count ?? 0);
+};
+
+export const findUnembeddedChunks = async (
+  limit = EMBED_BATCH_SIZE,
+): Promise<EmbeddableChunk[]> => {
   const chunks = await prisma.$queryRaw<EmbeddableChunk[]>`
     SELECT id, text
     FROM chunks
@@ -30,11 +53,9 @@ export const findUnembeddedChunks = async (limit = BATCH_SIZE): Promise<Embeddab
   return chunks;
 };
 
-export const persistChunkEmbedding = async (params: {
-  chunkId: string;
-  embedding: number[];
-  model: string;
-}): Promise<number> => {
+export const persistChunkEmbedding = async (
+  params: PersistChunkEmbeddingParams,
+): Promise<number> => {
   const vectorLiteral = toPgVectorLiteral(params.embedding);
 
   return await prisma.$executeRaw`
@@ -45,12 +66,6 @@ export const persistChunkEmbedding = async (params: {
       embedded_at = NOW()
     WHERE id = ${params.chunkId}
 `;
-};
-
-type BatchEmbedStats = {
-  embedded: number;
-  skipped: number;
-  failed: number;
 };
 
 export const embedAndPersistBatch = async (batch: EmbeddableChunk[]): Promise<BatchEmbedStats> => {
@@ -96,19 +111,58 @@ export const embedAndPersistBatch = async (batch: EmbeddableChunk[]): Promise<Ba
   return stats;
 };
 
-export const runBatchEmbedChunks = async (): Promise<void> => {
+export const runBatchEmbedChunks = async (options: EmbedRunOptions = {}): Promise<number> => {
+  const { dryRun = false, yes = false } = options;
+  const limits = readEmbedRunLimits();
+  const pendingAtStart = await countUnembeddedChunks();
+
+  const preflight = logEmbedPreflight({ pending: pendingAtStart, limits, dryRun });
+
+  if (pendingAtStart === 0 || dryRun || !preflight) {
+    return 0;
+  }
+
+  const confirmed = await confirmEmbedRun({
+    cappedChunks: preflight.cappedChunks,
+    estimatedCalls: preflight.estimatedCalls,
+    yes,
+  });
+
+  if (!confirmed) {
+    console.log("Aborted.");
+    return 0;
+  }
+
   let totalEmbedded = 0;
   let totalFailed = 0;
   let totalSkipped = 0;
   let batchNum = 0;
+  let chunksAttemptedThisRun = 0;
+  let stoppedByCap = false;
 
   while (true) {
-    const batch = await findUnembeddedChunks(BATCH_SIZE);
+    if (limits.maxBatches !== undefined && batchNum >= limits.maxBatches) {
+      stoppedByCap = true;
+      console.warn(
+        `Stopped: reached MAX_EMBED_BATCHES (${limits.maxBatches}). Re-run to continue.`,
+      );
+      break;
+    }
+
+    const batchLimit = resolveEmbedBatchLimit(chunksAttemptedThisRun, limits);
+    if (batchLimit === 0) {
+      stoppedByCap = true;
+      console.warn(`Stopped: reached MAX_EMBED_CHUNKS (${limits.maxChunks}). Re-run to continue.`);
+      break;
+    }
+
+    const batch = await findUnembeddedChunks(batchLimit);
     if (!batch.length) {
       break;
     }
 
     batchNum += 1;
+    chunksAttemptedThisRun += batch.length;
     let batchEmbedded = 0;
     let batchFailed = 0;
     let batchSkipped = 0;
@@ -145,19 +199,41 @@ export const runBatchEmbedChunks = async (): Promise<void> => {
     }
   }
 
+  const remaining = await countUnembeddedChunks();
+
   console.log(`
 Batches processed: ${batchNum}
 Total embedded:    ${totalEmbedded}
 Total skipped:     ${totalSkipped}
 Total failed:      ${totalFailed}
+Remaining:         ${remaining}
 `);
+
+  if (remaining > 0) {
+    if (stoppedByCap) {
+      console.error(`${remaining} chunk(s) still need embedding (stopped early due to caps).`);
+    } else {
+      console.error(`${remaining} chunk(s) still need embedding.`);
+    }
+
+    return 1;
+  }
+
+  if (totalFailed > 0) {
+    console.error("Run finished with failures but no remaining NULL embeddings to match filter.");
+    return 1;
+  }
+
+  return 0;
 };
 
-await runBatchEmbedChunks()
-  .catch((error) => {
-    console.error("An error occurred during embedding: ", error);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+const cli = parseEmbedCliArgs();
+
+const exitCode = await runBatchEmbedChunks(cli).catch((error) => {
+  console.error("An error occurred during embedding: ", error);
+  return 1;
+});
+
+process.exitCode = exitCode;
+
+await prisma.$disconnect();
