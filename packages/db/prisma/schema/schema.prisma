@@ -38,6 +38,10 @@ model Chunk {
   tokenCount Int?     @map("token_count")
   createdAt  DateTime @default(now()) @map("created_at")
 
+  embedding      Unsupported("vector(1536)")?
+  embeddingModel String?                      @map("embedding_model")
+  embeddedAt     DateTime?                    @map("embedded_at")
+
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@unique([documentId, chunkIndex])
