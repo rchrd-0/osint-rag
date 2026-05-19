@@ -1,5 +1,10 @@
-import type { DocumentDetailResponse, DocumentItem } from "@osint-rag/types";
+import type { DocumentDetailResponse, DocumentsListResponse } from "@osint-rag/types";
 import { apiClient } from "@/api/client";
+
+type DocumentsListParams = {
+  page: number;
+  limit: number;
+};
 
 export const api = {
   health: {
@@ -7,7 +12,12 @@ export const api = {
     check: () => apiClient.get("/health").json<{ uptime: number }>(),
   },
   documents: {
-    getAll: () => apiClient.get("/documents").json<DocumentItem[]>(),
+    list: ({ page, limit }: DocumentsListParams) =>
+      apiClient
+        .get("/documents", {
+          searchParams: { page, limit },
+        })
+        .json<DocumentsListResponse>(),
     getById: (id: string) => apiClient.get(`/documents/${id}`).json<DocumentDetailResponse>(),
   },
 };

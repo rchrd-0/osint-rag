@@ -15,3 +15,10 @@ export type DocumentDetailResponse = DocumentBase & {
 };
 
 export type DocumentItem = DocumentBase;
+
+export type DocumentsListResponse = {
+  items: DocumentItem[];
+  page: number;
+  hasMore: boolean;
+  totalCount: number;
+};

@@ -1,10 +1,14 @@
-import type { DocumentItem } from "@osint-rag/types";
+import type { DocumentsListQuery } from "@osint-rag/schemas";
+import type { DocumentItem, DocumentsListResponse } from "@osint-rag/types";
 import { HTTPException } from "hono/http-exception";
-import { findDocumentById, findDocuments } from "@/modules/documents/documents.repository";
+import {
+  countDocuments,
+  type DocumentListRow,
+  findDocumentById,
+  findDocumentsPage,
+} from "@/modules/documents/documents.repository";
 
-const mapDocumentItem = (
-  document: Awaited<ReturnType<typeof findDocuments>>[number],
-): DocumentItem => {
+const mapDocumentItem = (document: DocumentListRow): DocumentItem => {
   return {
     id: document.id,
     title: document.title,
@@ -25,10 +29,20 @@ const mapDocumentDetail = (document: NonNullable<Awaited<ReturnType<typeof findD
   };
 };
 
-export const getDocuments = async () => {
-  const documents = await findDocuments();
+export const getDocumentsPage = async (
+  query: DocumentsListQuery,
+): Promise<DocumentsListResponse> => {
+  const rows = await findDocumentsPage({ page: query.page, limit: query.limit });
+  const hasMore = rows.length > query.limit;
+  const items = hasMore ? rows.slice(0, query.limit) : rows;
+  const totalCount = await countDocuments();
 
-  return documents.map(mapDocumentItem);
+  return {
+    items: items.map(mapDocumentItem),
+    page: query.page,
+    hasMore,
+    totalCount,
+  };
 };
 
 export const getDocument = async (id: string) => {

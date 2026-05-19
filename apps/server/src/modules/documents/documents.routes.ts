@@ -1,10 +1,13 @@
+import { documentsListQuerySchema } from "@osint-rag/schemas";
 import { Hono } from "hono";
-import { getDocument, getDocuments } from "@/modules/documents/documents.service";
+import { validator } from "@/lib/validator";
+import { getDocument, getDocumentsPage } from "@/modules/documents/documents.service";
 
 const documentsRoutes = new Hono();
 
-documentsRoutes.get("/", async (c) => {
-  const docs = await getDocuments();
+documentsRoutes.get("/", validator("query", documentsListQuerySchema), async (c) => {
+  const query = c.req.valid("query");
+  const docs = await getDocumentsPage(query);
 
   return c.json({
     success: true,
