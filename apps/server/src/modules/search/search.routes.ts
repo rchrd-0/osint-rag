@@ -1,4 +1,4 @@
-import { QueryStrategyEnum, searchQuerySchema } from "@osint-rag/schemas";
+import { QueryStrategyEnum, SearchModeEnum, searchQuerySchema } from "@osint-rag/schemas";
 import { Hono } from "hono";
 import { validator } from "@/lib/validator";
 import {
@@ -7,24 +7,31 @@ import {
   searchChunksFullText,
   searchChunksVector,
 } from "@/modules/search/search.repository";
+import { selectChunksRoundRobin } from "./search.diversity";
 
 const searchRoutes = new Hono();
 
 searchRoutes.get("/", validator("query", searchQuerySchema), async (c) => {
-  const { q: query, limit, strategy } = c.req.valid("query");
+  const { q: query, limit, strategy, mode, chunksPerDocument } = c.req.valid("query");
+  const isDiversified = mode === SearchModeEnum.enum.diversified;
+  const retrievalLimit = isDiversified ? Math.min(limit * 3, 30) : limit;
 
-  let chunks: ChunkSearchResult[];
+  let retrievedChunks: ChunkSearchResult[];
   switch (strategy) {
     case QueryStrategyEnum.enum.naive:
-      chunks = await searchChunksContains(query, limit);
+      retrievedChunks = await searchChunksContains(query, retrievalLimit);
       break;
     case QueryStrategyEnum.enum.fts:
-      chunks = await searchChunksFullText(query, limit);
+      retrievedChunks = await searchChunksFullText(query, retrievalLimit);
       break;
     case QueryStrategyEnum.enum.vector:
-      chunks = await searchChunksVector(query, limit);
+      retrievedChunks = await searchChunksVector(query, retrievalLimit);
       break;
   }
+
+  const chunks = isDiversified
+    ? selectChunksRoundRobin(retrievedChunks, limit, chunksPerDocument)
+    : retrievedChunks;
 
   return c.json({
     success: true,
@@ -33,7 +40,11 @@ searchRoutes.get("/", validator("query", searchQuerySchema), async (c) => {
       meta: {
         query: query,
         strategy: strategy,
+        mode: mode,
         limit: limit,
+        retrievalLimit: retrievalLimit,
+        chunksPerDocument: isDiversified ? chunksPerDocument : null,
+        retrieved: retrievedChunks.length,
         returned: chunks.length,
       },
     },

@@ -10,6 +10,7 @@ import type {
 } from "@osint-rag/types";
 import { createUIMessageStream, generateId, generateText, streamText, type UIMessage } from "ai";
 import { openrouter } from "@/lib/ai/openrouter";
+import { selectChunksRoundRobin } from "@/modules/search/search.diversity";
 import {
   type ChunkSearchResult,
   searchChunksContains,
@@ -143,28 +144,6 @@ const getRankedChunks = async ({
   }
 };
 
-// 2. postprocess, diversity helper
-const capChunksPerDocument = (
-  chunks: ChunkSearchResult[],
-  chunksPerDocument = 2,
-): ChunkSearchResult[] => {
-  const chunkCountByDocumentId = new Map<string, number>();
-
-  const results: ChunkSearchResult[] = [];
-  for (const chunk of chunks) {
-    const currentCount = chunkCountByDocumentId.get(chunk.documentId) ?? 0;
-
-    if (currentCount >= chunksPerDocument) {
-      continue;
-    }
-
-    chunkCountByDocumentId.set(chunk.documentId, currentCount + 1);
-    results.push(chunk);
-  }
-
-  return results;
-};
-
 // 3. source builder
 const buildSources = (chunks: ChunkSearchResult[]): RagSource[] => {
   const sourceByDocumentId = new Map<string, RagSource>();
@@ -242,9 +221,7 @@ const buildRagContext = async (
   const retrievedChunks = await getRankedChunks({ query, limit: retrievalLimit, strategy });
   const retrievalLatencyMs = Math.round(performance.now() - startedAt);
 
-  // @TODO: v2, round robin to minimise rank greed
-  const cappedChunks = capChunksPerDocument(retrievedChunks, chunksPerDocument);
-  const selectedChunks = cappedChunks.slice(0, limit);
+  const selectedChunks = selectChunksRoundRobin(retrievedChunks, limit, chunksPerDocument);
 
   const sources = buildSources(selectedChunks);
   const context = buildContext(selectedChunks, sources);
