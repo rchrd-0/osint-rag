@@ -11,6 +11,7 @@
     "docs:chunk": "bun run src/scripts/chunk-documents.ts",
     "docs:embed": "bun run src/scripts/embed/index.ts",
     "docs:embed:dry": "bun run src/scripts/embed/index.ts -- --dry-run",
+    "embed:query": "bun run src/scripts/embed-query.ts --",
     "ingest:guardian": "bun run src/scripts/guardian-ingest.ts"
   },
   "dependencies": {
