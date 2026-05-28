@@ -101,25 +101,33 @@ export const searchChunksVector = async (
   const queryVector = await embedText(query);
   const vectorLiteral = toPgVectorLiteral(queryVector);
 
+  const similarityFloor = 0.4;
+
   const results = await prisma.$queryRaw<RankedSearchResult[]>`
-    SELECT
-      c.id,
-      c.document_id AS "documentId",
-      c.chunk_index AS "chunkIndex",
-      c.text,
-      d.title,
-      d.url,
-      d.published_at AS "publishedAt",
-      1 - (c.embedding <=> ${vectorLiteral}::vector(1536)) AS rank
-    FROM chunks c
-    JOIN documents d on d.id = c.document_id
-    WHERE (
-      c.embedding IS NOT NULL
-      AND c.embedding_model = ${EMBEDDING_MODEL_ID}
+    WITH ranked_chunks AS (
+      SELECT
+        c.id,
+        c.document_id AS "documentId",
+        c.chunk_index AS "chunkIndex",
+        c.text,
+        d.title,
+        d.url,
+        d.published_at AS "publishedAt",
+        1 - (c.embedding <=> ${vectorLiteral}::vector(1536)) AS rank
+      FROM chunks c
+      JOIN documents d on d.id = c.document_id
+      WHERE (
+        c.embedding IS NOT NULL
+        AND c.embedding_model = ${EMBEDDING_MODEL_ID}
+      )
     )
-    ORDER BY c.embedding <=> ${vectorLiteral}::vector(1536)
+    SELECT *
+    FROM ranked_chunks
+    WHERE rank >= ${similarityFloor}
+    ORDER BY rank DESC
     LIMIT ${limit}`;
 
+  // -- ORDER BY c.embedding <=> ${vectorLiteral}::vector(1536)
   return results.map((result) => ({
     id: result.id,
     documentId: result.documentId,
